@@ -280,7 +280,11 @@ class Engine {
     ++developments;
   }
   int melodyPitch(unsigned root,unsigned degree) const {
-    return foldPitch(scaleNote(root+degree,0),60,91);
+    // Rill's melody runs to MIDI 91. A kalimba does not: the recorded set
+    // stops at C#6, and asking the top zone to reach a G6 would be asking a
+    // sampled instrument to do the one thing it does badly. The register is
+    // folded into the instrument's own range instead.
+    return foldPitch(scaleNote(root+degree,0),57,84);
   }
   int supportPitch(unsigned root) const {
     int best=previousSupport, distance=100;
@@ -325,7 +329,7 @@ class Engine {
       } else {
         if(activity==2 || (activity!=3 && scoreUnit()<0.48f)) {
           unsigned d=unsigned(answer[answerStep]);
-          int pitch=foldPitch(melodyPitch(harmonicRoot,d)+12,72,91);
+          int pitch=foldPitch(melodyPitch(harmonicRoot,d)+12,69,84);
           // Avoid a close semitone against a recently sounding lead note.
           int interval=std::abs(pitch-lastLead)%12;
           if(interval!=1 && interval!=11) {
@@ -353,7 +357,7 @@ class Engine {
       int pitch=melodyPitch(harmonicRoot,unsigned(degree));
       // Occasionally place the whole answering half in a different register.
       if(character==3 && phraseCount%3==1 && phraseStep>=phraseLength/2)
-        pitch=foldPitch(pitch+12,72,91);
+        pitch=foldPitch(pitch+12,69,84);
       float duration=decaySeconds*(0.32f+0.18f*rhythm[phraseStep])*articulation[phraseStep]
                      *(0.90f+0.20f*performanceUnit());
       if(activity==2) duration*=0.8f;

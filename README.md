@@ -16,26 +16,35 @@ unchanged from Rill.
 
 ## Multisampling
 
-One zone every four semitones from G3 to G6 (MIDI 55 to 91), which covers the
-score's melody range (60–91) and its support range (55–72). A note picks the
-nearest zone and resamples from that zone's root, so nothing is ever bent more
-than two semitones. Stretching one clip across the whole range is what makes a
-sampled instrument sound like a cartoon at its edges.
+Ten zones at the pitches the instrument was actually recorded at, roughly four
+semitones apart from G3 to C#6. A note picks the nearest zone and resamples
+from that zone's root, so nothing is ever bent more than about two and a half
+semitones. Stretching one clip across a whole range is what makes a sampled
+instrument sound like a cartoon at its edges.
 
-## The samples are placeholders
+Rill's melody register runs to MIDI 91 and a kalimba does not, so the score is
+folded into 57–84 here: the instrument's own range rather than the synth's.
 
-`tools/render_kalimba.py` synthesizes the current set: a kalimba tine modelled
-as a bar clamped at one end, with partials near 1 : 6.18 : 17.3 : 33.8, each
-given its own decay, plus a filtered strike transient and a body resonance.
-They are rendered, not recorded.
+## The samples
 
-Anything recorded that replaces them must carry a license compatible with this
-project's GPL-3.0. Record the source in `docs/SOURCES.md` before embedding it.
+Ten recorded kalimba pitches from the [Versilian Community Sample
+Library](https://github.com/sgossner/VCSL), which is CC0 and so carries no
+conditions. `tools/fetch_vcsl.py` downloads them, converts to mono 16-bit at
+32 kHz, cuts the tenth of a second of room tone each clip opens with, and
+normalizes the set with one gain so the instrument keeps its own register
+balance.
 
 ```sh
-python tools/render_kalimba.py build/samples
+python tools/fetch_vcsl.py build/samples
 python tools/embed_samples.py build/samples
 ```
+
+`tools/render_kalimba.py` synthesizes a set instead — a tine modelled as a bar
+clamped at one end, partials near 1 : 6.18 : 17.3 : 33.8 with separate decays,
+a filtered strike and a body resonance. It is kept for prototyping an
+instrument no free recording exists for. Anything recorded that goes into
+`src/Samples.h` needs a license compatible with GPL-3.0; see
+[docs/SOURCES.md](docs/SOURCES.md).
 
 `embed_samples.py` takes `<instrument>_<root midi>.wav`, mono 16-bit PCM at
 32 kHz, and writes `src/Samples.h`. The root in the filename is the pitch the
