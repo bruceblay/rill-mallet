@@ -76,7 +76,10 @@ def main():
             lines.append('')
 
     lines.append('struct Zone { const int16_t* data; uint32_t length; uint8_t root; };')
-    lines.append('struct Instrument { const Zone* zones; uint8_t count; };')
+    lines.append('// low and high are the register the score should play this instrument in:')
+    lines.append('// its own recorded range, give or take a couple of semitones, rather than')
+    lines.append('// one register borrowed from the synth for all of them.')
+    lines.append('struct Instrument { const Zone* zones; uint8_t count; uint8_t low, high; };')
     lines.append('')
     for name, entries in sorted(instruments.items()):
         lines.append(f'static const Zone {name}_zones[] = {{')
@@ -87,7 +90,9 @@ def main():
     lines.append('')
     lines.append('static const Instrument instruments[] = {')
     for name, entries in sorted(instruments.items()):
-        lines.append(f'  {{{name}_zones, {len(entries)}}},  // {name}')
+        roots = sorted(root for root, _ in entries)
+        low, high = max(0, roots[0] - 2), min(127, roots[-1] + 2)
+        lines.append(f'  {{{name}_zones, {len(entries)}, {low}, {high}}},  // {name}, MIDI {low}-{high}')
     lines.append('};')
     lines.append(f'static constexpr unsigned instrumentCount = {len(instruments)};')
     lines.append('}')

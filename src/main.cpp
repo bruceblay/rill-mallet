@@ -59,7 +59,8 @@ void draw() {
   d.drawFastHLine(16, 48, 208, 0x4208);
   d.setTextSize(2);
   uint32_t info = sceneInfo.load();
-  static const char* tones[] = {"Tine A", "Tine B", "Tine C", "Tine D", "Tine E", "Tine F", "Tine G"};
+  // Alphabetical, matching samples::instruments.
+  static const char* tones[] = {"Balafon", "Glock", "Kalimba", "Marimba", "Piano", "Vibes", "Xylo"};
   static const char* keys[] = {"C","Db","D","Eb","E","F","F#","G","Ab","A","Bb","B"};
   static const char* modes[] = {"maj","min","dor"};
   static const char* times[] = {"3:5", "Trip", "1:3", "Cross"};

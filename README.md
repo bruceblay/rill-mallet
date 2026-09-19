@@ -1,8 +1,9 @@
 # Rill Chime
 
 A sampled sibling to [Rill](../rill). Same composer, different voice: instead of
-synthesizing each note, it plays multisampled tuned percussion — kalimba first,
-with xylophone and wooden bars to follow.
+synthesizing each note, it plays multisampled tuned percussion. Seven
+instruments, one per generation: balafon, glockenspiel, kalimba, marimba,
+piano, vibraphone and xylophone.
 
 ## Why samples
 
@@ -16,23 +17,27 @@ unchanged from Rill.
 
 ## Multisampling
 
-Ten zones at the pitches the instrument was actually recorded at, roughly four
-semitones apart from G3 to C#6. A note picks the nearest zone and resamples
-from that zone's root, so nothing is ever bent more than about two and a half
-semitones. Stretching one clip across a whole range is what makes a sampled
-instrument sound like a cartoon at its edges.
+Five to eight zones per instrument, at pitches it was actually recorded at. A
+note picks the nearest zone and resamples from that zone's root, so nothing is
+bent more than a few semitones. Stretching one clip across a whole range is
+what makes a sampled instrument sound like a cartoon at its edges.
 
-Rill's melody register runs to MIDI 91 and a kalimba does not, so the score is
-folded into 57–84 here: the instrument's own range rather than the synth's.
+Each instrument also brings its own register. Rill folds its melody into a
+fixed MIDI 60–91 because its synthesis can play anything; a glockenspiel has
+no low F and a marimba has no top C. The melody takes the top two thirds of
+whatever the instrument's recorded range is and the support part the bottom
+half, so the two never sit on top of each other.
 
 ## The samples
 
-Ten recorded kalimba pitches from the [Versilian Community Sample
+All seven come from the [Versilian Community Sample
 Library](https://github.com/sgossner/VCSL), which is CC0 and so carries no
-conditions. `tools/fetch_vcsl.py` downloads them, converts to mono 16-bit at
-32 kHz, cuts the tenth of a second of room tone each clip opens with, and
-normalizes the set with one gain so the instrument keeps its own register
-balance.
+conditions. `tools/fetch_vcsl.py` picks the zones, downloads them, converts to
+mono 16-bit at 32 kHz, cuts the room tone each clip opens with, and normalizes
+each instrument with a single gain so it keeps its own register balance.
+
+Clip length is per instrument. A xylophone bar is finished inside a second and
+a vibraphone is not, and storing silence is storing flash.
 
 ```sh
 python tools/fetch_vcsl.py build/samples
@@ -70,7 +75,8 @@ Arguments are output path, seconds, seed, and optional first family (0–6).
 ## Layout
 
 - `src/Chime.h` — Rill's score with a sampled voice layer
-- `src/Samples.h` — generated; the multisample zones
+- `src/Samples.h` — generated; roughly 4 MB of multisample zones
+- `partitions_chime.csv` — one factory app partition instead of two OTA slots, for the samples
 - `src/Light.h` — visuals, currently Rill's, to be replaced
 - `tools/render_kalimba.py` — renders the placeholder set
 - `tools/embed_samples.py` — WAV to header

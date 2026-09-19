@@ -68,6 +68,7 @@ class Engine {
   unsigned family = 0, tonic = 2, mode = 0;
   int initialFamily = -1;
   float brightness = 0.48f, strike = 0.008f, overtoneLife = 0.4f;
+  int melodyLow = 60, melodyHigh = 84, supportLow = 55, supportHigh = 72;
   float voiceGain = 1, fmDepth = 0;
   uint32_t transition = 0;
   static constexpr uint32_t fadeFrames = rate / 3;
@@ -134,6 +135,15 @@ class Engine {
     // No adjacent repeats of either the instrument family or tonic.
     family = generation ? (family + 1 + random() % 6) % 7 : random() % 7;
     if (initialFamily >= 0 && initialFamily < 7) { family = unsigned(initialFamily); initialFamily = -1; }
+    // The instrument decides the register. Its melody takes the top two
+    // thirds of the recorded range and its support part the bottom half, so
+    // the two never sit on top of each other whatever the instrument's span.
+    const samples::Instrument& set = samples::instruments[family % samples::instrumentCount];
+    int span = int(set.high) - int(set.low);
+    melodyLow = int(set.low) + span / 3;
+    melodyHigh = int(set.high);
+    supportLow = int(set.low);
+    supportHigh = int(set.low) + span / 2;
     tonic = generation ? (tonic + 1 + random() % 11) % 12 : random() % 12;
     mode = random() % 3;
     character = generation ? (character + 1 + random() % 5) % 6 : random() % 6;
@@ -152,10 +162,13 @@ class Engine {
     static const float attacks[][2] = {{0.004f,0.009f},{0.004f,0.010f},{0.004f,0.010f},{0.009f,0.018f},{0.006f,0.016f},{0.018f,0.042f},{0.009f,0.020f}};
     static const float colors[][2] = {{0.22f,0.40f},{0.38f,0.68f},{0.27f,0.44f},{0.30f,0.52f},{0.35f,0.52f},{0.16f,0.26f},{0.25f,0.48f}};
     static const float life[] = {0.13f,0.20f,0.085f,0.8f,0.24f,0.7f,0.25f};
-    // Rill's per-family gains, lifted by half again: the clips are normalized
-    // as a set and sit lower than the synthesis they replaced, and the
-    // built-in speaker needs the level.
-    static const float gains[] = {2.0f,2.2f,1.7f,1.9f,1.45f,1.5f,1.7f};
+    // One gain per instrument, set by ear against measured loudness rather
+    // than carried over from the synthesis. A piano note spends most of its
+    // length in the tail and a vibraphone almost none, so clips normalized to
+    // the same peak are nowhere near the same loudness in a phrase.
+    // Order follows samples::instruments, which is alphabetical:
+    // balafon, glockenspiel, kalimba, marimba, piano, vibraphone, xylophone.
+    static const float gains[] = {2.3f,3.4f,3.9f,1.35f,4.2f,0.85f,2.8f};
     decaySeconds = durations[family][0] + unit() * (durations[family][1] - durations[family][0]);
     strike = attacks[family][0] + unit() * (attacks[family][1] - attacks[family][0]);
     brightness = colors[family][0] + unit() * (colors[family][1] - colors[family][0]);
@@ -193,7 +206,7 @@ class Engine {
     harmonicRoot = 0;
     homeRoot = scoreRandom()%3;
     harmonyStyle = scoreRandom()%4;
-    previousSupport = foldPitch(scaleNote(0,0),55,72);
+    previousSupport = foldPitch(scaleNote(0,0),supportLow,supportHigh);
     lastLead = melodyPitch(0,landing);
     lastLeadAt = clock;
     activity = scoreRandom()%3;
@@ -280,18 +293,19 @@ class Engine {
     ++developments;
   }
   int melodyPitch(unsigned root,unsigned degree) const {
-    // Rill's melody runs to MIDI 91. A kalimba does not: the recorded set
-    // stops at C#6, and asking the top zone to reach a G6 would be asking a
-    // sampled instrument to do the one thing it does badly. The register is
-    // folded into the instrument's own range instead.
-    return foldPitch(scaleNote(root+degree,0),57,84);
+    // Rill folds its melody into a fixed MIDI 60-91 because its synthesis can
+    // play anything. These instruments cannot: a glockenspiel has no low F
+    // and a marimba has no top C, and asking a zone to reach two octaves past
+    // where it was recorded is the one thing a sampler does badly. Each
+    // generation takes the register of whatever instrument it is playing.
+    return foldPitch(scaleNote(root+degree,0),melodyLow,melodyHigh);
   }
   int supportPitch(unsigned root) const {
     int best=previousSupport, distance=100;
     for(unsigned d : {0u,2u,4u}) for(int octave=-1;octave<=1;++octave) {
       int candidate=scaleNote(root+d,0)+12*octave;
       int delta=std::abs(candidate-previousSupport);
-      if(candidate>=55 && candidate<=72 && delta<distance) {best=candidate;distance=delta;}
+      if(candidate>=supportLow && candidate<=supportHigh && delta<distance) {best=candidate;distance=delta;}
     }
     return best;
   }
@@ -317,7 +331,7 @@ class Engine {
     }
     phraseLevel=0.5f*phraseLevel+0.5f*(0.94f+0.12f*performanceUnit());
     if(activity!=3 && scoreUnit()<0.65f) {
-      previousSupport=harmonyStyle==3 ? foldPitch(scaleNote(0,0),55,67) : supportPitch(harmonicRoot);
+      previousSupport=harmonyStyle==3 ? foldPitch(scaleNote(0,0),supportLow,supportLow+12) : supportPitch(harmonicRoot);
       note(previousSupport,2.1f,0.025f,2.075f,0.055f*phraseLevel*touchVariation(),brightness*0.65f);
     }
   }
@@ -329,7 +343,7 @@ class Engine {
       } else {
         if(activity==2 || (activity!=3 && scoreUnit()<0.48f)) {
           unsigned d=unsigned(answer[answerStep]);
-          int pitch=foldPitch(melodyPitch(harmonicRoot,d)+12,69,84);
+          int pitch=foldPitch(melodyPitch(harmonicRoot,d)+12,melodyHigh-15,melodyHigh);
           // Avoid a close semitone against a recently sounding lead note.
           int interval=std::abs(pitch-lastLead)%12;
           if(interval!=1 && interval!=11) {
@@ -357,7 +371,7 @@ class Engine {
       int pitch=melodyPitch(harmonicRoot,unsigned(degree));
       // Occasionally place the whole answering half in a different register.
       if(character==3 && phraseCount%3==1 && phraseStep>=phraseLength/2)
-        pitch=foldPitch(pitch+12,69,84);
+        pitch=foldPitch(pitch+12,melodyHigh-15,melodyHigh);
       float duration=decaySeconds*(0.32f+0.18f*rhythm[phraseStep])*articulation[phraseStep]
                      *(0.90f+0.20f*performanceUnit());
       if(activity==2) duration*=0.8f;
