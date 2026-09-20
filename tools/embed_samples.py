@@ -4,7 +4,7 @@
 """Convert a directory of mono 16-bit PCM WAVs into src/Samples.h.
 
 Each file must be named <instrument>_<root midi>.wav, mono 16-bit PCM at
-32000 Hz, matching chime::rate. The root in the filename is the pitch the
+32000 Hz, matching mallet::rate. The root in the filename is the pitch the
 clip was recorded or rendered at; the player resamples from there to reach
 every other note, so getting it wrong detunes the whole zone.
 

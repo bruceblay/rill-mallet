@@ -18,7 +18,7 @@
 // copied into RAM. Bounded and deterministic, with no allocation, locks or
 // transcendental functions in the per-sample path.
 #include "Samples.h"
-namespace chime {
+namespace mallet {
 constexpr uint32_t rate = 32000;
 constexpr float pi = 3.14159265358979323846f;
 class Engine {

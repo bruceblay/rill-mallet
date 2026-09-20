@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Bruce Blay
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Render a kalimba multisample set to mono 16-bit WAV at chime::rate.
+"""Render a kalimba multisample set to mono 16-bit WAV at mallet::rate.
 
 Clips run to 1.9 seconds. A real tine rings longer, but the score's own
 envelope closes every melody note between a fifth of a second and one and a

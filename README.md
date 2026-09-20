@@ -1,4 +1,4 @@
-# Rill Chime
+# Rill Mallet
 
 A sampled sibling to [Rill](../rill). Same composer, different voice: instead of
 synthesizing each note, it plays multisampled tuned percussion. Seven
@@ -67,16 +67,16 @@ Host audition, without hardware:
 
 ```sh
 c++ -std=c++17 -O2 tools/render.cpp -o build/render
-build/render build/chime.wav 60 42
+build/render build/mallet.wav 60 42
 ```
 
 Arguments are output path, seconds, seed, and optional first family (0–6).
 
 ## Layout
 
-- `src/Chime.h` — Rill's score with a sampled voice layer
+- `src/Mallet.h` — Rill's score with a sampled voice layer
 - `src/Samples.h` — generated; roughly 4 MB of multisample zones
-- `partitions_chime.csv` — one factory app partition instead of two OTA slots, for the samples
+- `partitions_mallet.csv` — one factory app partition instead of two OTA slots, for the samples
 - `src/Light.h` — visuals, currently Rill's, to be replaced
 - `tools/render_kalimba.py` — renders the placeholder set
 - `tools/embed_samples.py` — WAV to header

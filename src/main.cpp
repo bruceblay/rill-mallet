@@ -3,12 +3,12 @@
 #include <M5Unified.h>
 #include <atomic>
 #include <esp_system.h>
-#include "Chime.h"
+#include "Mallet.h"
 #include "Light.h"
 #include "ShakeDetector.h"
 
 // Working title. Display and controls run separately from the audio producer.
-static chime::Engine engine;
+static mallet::Engine engine;
 static light::Painting painting;
 static ShakeDetector shake;
 static bool infoVisible = false, audioFailed = false;
@@ -32,7 +32,7 @@ void audioTask(void*) {
     for (auto sample : buffers[index]) energy += unsigned(std::abs(int(sample)));
     audioLevel.store(energy / 512);
     if (elapsed > worstRenderUs) worstRenderUs = elapsed;
-    while (!M5.Speaker.playRaw(buffers[index], 512, chime::rate, false, 1, 0)) {
+    while (!M5.Speaker.playRaw(buffers[index], 512, mallet::rate, false, 1, 0)) {
       ++queueErrors;
       vTaskDelay(1);
     }
@@ -55,7 +55,7 @@ void draw() {
   d.fillScreen(0x1082);
   d.setTextColor(0xD692, 0x1082);
   d.setTextSize(3);
-  d.setCursor(16, 14); d.print("CHIME");
+  d.setCursor(16, 14); d.print("MALLET");
   d.drawFastHLine(16, 48, 208, 0x4208);
   d.setTextSize(2);
   uint32_t info = sceneInfo.load();
@@ -94,9 +94,9 @@ void setup() {
     M5.Display.setTextSize(2); M5.Display.setCursor(16, 62); M5.Display.print("audio error");
     return;
   }
-  if (xTaskCreatePinnedToCore(motionTask, "chime-motion", 4096, nullptr, 1, nullptr, 0) != pdPASS)
+  if (xTaskCreatePinnedToCore(motionTask, "mallet-motion", 4096, nullptr, 1, nullptr, 0) != pdPASS)
     Serial.println("Motion task unavailable");
-  if (xTaskCreatePinnedToCore(audioTask, "chime-audio", 4096, nullptr, 3, nullptr, 1) != pdPASS) {
+  if (xTaskCreatePinnedToCore(audioTask, "mallet-audio", 4096, nullptr, 3, nullptr, 1) != pdPASS) {
     audioFailed = true; M5.Display.fillScreen(0x1082);
     M5.Display.setTextSize(2); M5.Display.setCursor(16, 62); M5.Display.print("audio error");
   }
