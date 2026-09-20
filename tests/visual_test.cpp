@@ -10,6 +10,14 @@ uint32_t hash(const resonance::Painting& p) {
   return value;
 }
 int main() {
+  // Character and instrument are drawn separately, so a run of generations
+  // has to reach every character on its own.
+  {
+    auto sweep = std::unique_ptr<resonance::Painting>(new resonance::Painting(3));
+    unsigned seen = 0;
+    for (unsigned i = 0; i < 60; ++i) { seen |= 1u << sweep->visualFamily(); sweep->regenerate(); }
+    assert(seen == (1u << resonance::Painting::characterCount) - 1);
+  }
   auto a = std::unique_ptr<resonance::Painting>(new resonance::Painting(17));
   auto b = std::unique_ptr<resonance::Painting>(new resonance::Painting(17));
   a->render(0, 0); b->render(0, 0);
@@ -39,10 +47,10 @@ int main() {
     for (unsigned i = 0; i < 120; ++i)
       a->render(.083f, .4f, i % 5 == 0 ? uint8_t(70 + (i % 11)) : uint8_t(0), .4f);
     assert(hash(*a) != played);
-    // A shake rearranges without changing the character.
+    // A shake draws a different character, never the one already showing.
     auto before = hash(*a);
     a->regenerate(); a->render(0, 0);
-    assert(a->visualFamily() == character && hash(*a) != before);
+    assert(a->visualFamily() != character && hash(*a) != before);
   }
   std::cout << "Seven characters, deterministic seeds, per-strike response and frame bounds passed\n";
 }

@@ -94,7 +94,6 @@ void setup() {
   M5.Display.setRotation(1);
   M5.Display.setBrightness(100);
   M5.Speaker.setVolume(volume);
-  painting.setCharacter(engine.instrument());
   painting.setRegister(engine.melodyBottom(), engine.melodyTop());
   painting.render(0,0);
   M5.Display.pushImage(0,0,240,135,reinterpret_cast<const lgfx::rgb565_t*>(painting.pixels()));
@@ -128,13 +127,10 @@ void loop() {
   }
   static uint32_t frameAt = 0;
   const bool newVisual = repaintRequested.exchange(false);
-  if (newMusic) {
-    // A new generation brings a new instrument, and the character follows it.
-    painting.setCharacter(engine.instrument());
-    painting.setRegister(engine.melodyBottom(), engine.melodyTop());
-  }
-  // A shake rearranges the character rather than swapping it: the instrument
-  // has not changed, so neither should what it looks like.
+  // The register is only a scale for placing pitch, not a choice of picture:
+  // the character is drawn separately from the instrument, by both a new
+  // generation and a shake.
+  if (newMusic) painting.setRegister(engine.melodyBottom(), engine.melodyTop());
   if (newMusic || newVisual) { painting.regenerate(); infoVisible=false; frameAt=now-83; }
   if (infoVisible && uint32_t(now - infoAt) >= 4000) infoVisible = false;
   static bool wasInfoVisible = false;

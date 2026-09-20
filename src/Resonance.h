@@ -15,10 +15,13 @@
 // answer individual strikes, with the pitch of each one, because that is what
 // a mallet instrument gives you and a level meter throws away.
 //
-// The character is bound to the instrument rather than shuffled: the
-// glockenspiel always gets the sparse constellation, the marimba always the
-// slow broad swells. A shake rearranges the character it is in rather than
-// swapping it for another, since the instrument has not changed.
+// The character is chosen independently of the instrument. Pairing them one
+// to one was tried and is the wrong idea: it turns seven instruments and
+// seven characters into seven fixed pieces, when the point of a generative
+// instrument is the combinations it finds. A new generation draws a new
+// instrument and a new character separately, and a shake draws a character
+// again without touching the sound, so the vibraphone can arrive under the
+// ragged field or the sparse page and neither of them is its.
 //
 // Shared by firmware and the host preview tools.
 namespace resonance {
@@ -387,13 +390,23 @@ class Painting {
   // The register the instrument is playing in, so pitch can be placed across
   // the whole frame whatever that register is.
   void setRegister(int low, int high) { registerLow = low; registerHigh = high; }
+  // Force a particular character. The firmware does not use this; the host
+  // preview does, to look at one of them on its own.
   void setCharacter(unsigned which) {
-    if (which % characterCount == character) return;
     character = which % characterCount;
-    regenerate();
+    arrange();
   }
 
+  // A new character, never the one already showing, and a new arrangement of
+  // it. Called on a new generation and on a shake alike.
   void regenerate() {
+    character = count ? (character + 1 + random() % (characterCount - 1)) % characterCount
+                      : random() % characterCount;
+    arrange();
+  }
+
+  // A new arrangement of the character already showing.
+  void arrange() {
     palette = count ? (palette + 1 + random() % 5) % 6 : random() % 6;
     ++count;
     phase = unit() * 40.0f;

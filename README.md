@@ -74,22 +74,23 @@ Arguments are output path, seconds, seed, and optional first family (0–6).
 
 ## The visuals
 
-One character per instrument, bound to it rather than shuffled. A new
-generation brings a new instrument and with it a new character; a shake
-rearranges the character it is already in, since the instrument has not
-changed.
+Seven characters, drawn independently of the instrument. A new generation
+picks a new instrument and a new character separately; a shake picks a
+character again without touching the sound. Pairing them one to one turns
+seven instruments and seven characters into seven fixed pieces, and the point
+of a generative instrument is the combinations it finds.
 
 <img src="docs/images/characters.png" alt="The seven visual characters" width="720">
 
 *Top row: grain, spark, ring, swell. Bottom row: stack, wheel, snap.*
 
-- **Grain** (balafon) — a field of short bars, ragged the way a buzzing gourd is; a strike sends a column of them flipping.
-- **Spark** (glockenspiel) — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
-- **Ring** (kalimba) — every pluck pushes a ring out from the core, and the rings stay until they leave the frame.
-- **Swell** (marimba) — broad rounded bars that swell and settle, low and slow.
-- **Stack** (piano) — each note lays a band across the page and pushes the older ones up: time reads bottom to top, pitch reads as width.
-- **Wheel** (vibraphone) — a rotating wheel of sectors, which is what the instrument's fans do to its sound.
-- **Snap** (xylophone) — hard angular marks that arrive on a strike and are gone by the next one. Nothing accumulates, which is the character of the instrument.
+- **Grain** — a field of short bars; a strike sends a column of them flipping.
+- **Spark** — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
+- **Ring** — every strike pushes a ring out from the core, and the rings stay until they leave the frame.
+- **Swell** — broad rounded bars that swell and settle, low and slow.
+- **Stack** — each note lays a band across the page and pushes the older ones up: time reads bottom to top, pitch reads as width.
+- **Wheel** — a rotating wheel of sectors.
+- **Snap** — hard angular marks that arrive on a strike and are gone by the next one. Nothing accumulates.
 
 They are drawn in Rill's language — opaque shapes, hard edges, a coloured
 ground, no glow or gradient — but driven differently. Rill's families answer a
