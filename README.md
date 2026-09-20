@@ -82,13 +82,13 @@ of a generative instrument is the combinations it finds.
 
 <img src="docs/images/characters.png" alt="The seven visual characters" width="720">
 
-*Top row: split, spark, ring, trace. Bottom row: stack, bloom, snap.*
+*Top row: split, spark, ring, trace. Bottom row: fold, bloom, snap.*
 
 - **Split** — every strike cuts the page in two and the new region takes its own flat colour. A composition built note by note.
 - **Spark** — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
 - **Ring** — every strike pushes a ring out from the core, and the rings stay until they leave the frame.
 - **Trace** — a line that turns a corner on every strike and is drawn to it over the next fraction of a second.
-- **Stack** — each note lays a band across the page and pushes the older ones up: time reads bottom to top, pitch reads as width.
+- **Fold** — a grid of cells, one turning on every strike: it shrinks to its edge and comes back in a new colour, with two neighbours following a moment later.
 - **Bloom** — petals opening one to a strike, stepping round by the golden angle, until the rosette is full and another starts.
 - **Snap** — a strike bursts into shards that scatter from the point and fade. Nothing accumulates.
 

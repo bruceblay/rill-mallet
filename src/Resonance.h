@@ -29,12 +29,13 @@ class Painting {
  public:
   static constexpr unsigned width = 240, height = 135;
   static constexpr unsigned characterCount = 7;
-  enum Character : unsigned { Split = 0, Spark, Ring, Trace, Stack, Bloom, Snap };
+  enum Character : unsigned { Split = 0, Spark, Ring, Trace, Fold, Bloom, Snap };
 
  private:
   struct Color { float r, g, b; };
   struct Mark { float x, y, size, age; unsigned tint, shape; };
-  struct Band { float span, offset, thickness, age; unsigned tint; };
+  // Fold: one cell of the grid, turning from one colour to the next.
+  struct Cell { float turn; unsigned tint, next; };
   // Split: a flat region of the page, and how far its newest edge has slid
   // into place.
   struct Region { float x0, y0, x1, y1, open; unsigned tint; };
@@ -58,8 +59,8 @@ class Painting {
 
   std::array<Mark, 40> marks{};
   unsigned markCount = 0, nextMark = 0;
-  std::array<Band, 16> bands{};
-  unsigned bandCount = 0;
+  std::array<Cell, 48> cells{};
+  unsigned columns = 6, rows = 4;
   std::array<Region, 22> regions{};
   unsigned regionCount = 0;
   std::array<Petal, 20> petals{};
@@ -246,32 +247,55 @@ class Painting {
     }
   }
 
-  // Each note lays a band across the page and pushes the older ones up. Time
-  // reads bottom to top, pitch reads as width.
-  void renderStack(float dt, uint8_t note, float weight) {
+  // A grid of cells, one of which turns on every strike: it shrinks to its
+  // edge and comes back in a new colour, the way a card turns. The grid keeps
+  // reorganizing for as long as the music plays and stops dead when it stops,
+  // which is the whole point.
+  void renderFold(float dt, uint8_t note, float weight) {
     if (note) {
-      for (unsigned i = bands.size() - 1; i > 0; --i) bands[i] = bands[i - 1];
-      Band& b = bands[0];
-      b.span = 0.25f + place(note) * 0.7f;
-      b.offset = (evolving[0] - 0.5f) * 0.4f;
-      b.thickness = 5.0f + weight * 9.0f;
-      b.tint = unsigned(place(note) * 3.0f) % 3;
-      b.age = 0;
-      if (bandCount < bands.size()) ++bandCount;
+      unsigned col = unsigned(place(note) * float(columns));
+      if (col >= columns) col = columns - 1;
+      // Pitch picks the column and the strike picks the row, so a repeated
+      // note turns a different cell of the same column rather than flipping
+      // the same one back and forth.
+      unsigned row = random() % rows;
+      Cell& c = cells[row * columns + col];
+      c.next = (c.tint + 1 + unsigned(weight * 2.0f)) % 3;
+      c.turn = 1;
+      // Two neighbours follow a moment later, so a strike runs through the
+      // grid rather than turning one card in silence.
+      for (unsigned n = 0; n < 2; ++n) {
+        int nc = int(col) + (random() % 3) - 1, nr = int(row) + (random() % 3) - 1;
+        if (nc < 0 || nr < 0 || nc >= int(columns) || nr >= int(rows)) continue;
+        Cell& near = cells[unsigned(nr) * columns + unsigned(nc)];
+        if (near.turn > 0) continue;
+        near.next = (near.tint + 1 + n) % 3;
+        near.turn = 1.35f + float(n) * 0.35f;
+      }
     }
     clear();
-    float y = float(height) + 4;
-    for (unsigned i = 0; i < bandCount; ++i) {
-      Band& b = bands[i];
-      b.age += dt;
-      float w = float(width) * b.span;
-      float cx = float(width) * (0.5f + b.offset);
-      float rise = std::min(1.0f, b.age * 2.2f);
-      float h = b.thickness * rise;
-      y -= h + 2;
-      if (y < -20) break;
-      rect(cx - w * 0.5f, y, cx + w * 0.5f, y + h, wash(ink[b.tint], i > 5 ? 0.45f : 0.0f));
-    }
+    float cw = float(width) / float(columns), ch = float(height) / float(rows);
+    static const float tints[3] = {0.0f, 0.30f, 0.58f};
+    for (unsigned row = 0; row < rows; ++row)
+      for (unsigned col = 0; col < columns; ++col) {
+        Cell& c = cells[row * columns + col];
+        if (c.turn > 0) {
+          float was = c.turn;
+          c.turn = std::max(0.0f, c.turn - dt * 3.2f);
+          // Halfway through the turn the card is edge-on and the new colour
+          // takes over.
+          if (was > 0.5f && c.turn <= 0.5f) c.tint = c.next;
+        }
+        // Edge-on at the halfway point, full width at either end. Above one
+        // the cell is still waiting its turn and stands full width.
+        float open = c.turn > 1.0f ? 1.0f : std::abs(c.turn - 0.5f) * 2.0f;
+        if (c.turn <= 0) open = 1;
+        float w = (cw - gutter * 2) * open;
+        float cx = float(col) * cw + cw * 0.5f, cy = float(row) * ch + ch * 0.5f;
+        rect(cx - w * 0.5f, cy - (ch - gutter * 2) * 0.5f,
+             cx + w * 0.5f, cy + (ch - gutter * 2) * 0.5f,
+             wash(ink[c.tint], tints[(row + col + c.tint) % 3]));
+      }
   }
 
   // Hard angular marks that arrive on a strike and are gone by the next. A
@@ -499,8 +523,13 @@ class Painting {
 
     markCount = 0; nextMark = 0;
     for (auto& m : marks) m = Mark{};
-    bandCount = 0;
-    for (auto& b : bands) b = Band{};
+    columns = 5 + unsigned(unit() * 4.0f);
+    rows = 3 + unsigned(unit() * 3.0f);
+    for (unsigned i = 0; i < cells.size(); ++i) {
+      cells[i].tint = (i * 7 + random() % 3) % 3;
+      cells[i].next = cells[i].tint;
+      cells[i].turn = 0;
+    }
     ringCount = 0; nextRing = 0;
     rings.fill(0);
     clearAt = range(14.0f, 22.0f);
@@ -528,7 +557,7 @@ class Painting {
       case Spark: renderSpark(seconds, note, weight); break;
       case Ring: renderRing(seconds, note, weight); break;
       case Trace: renderTrace(seconds, note, weight); break;
-      case Stack: renderStack(seconds, note, weight); break;
+      case Fold: renderFold(seconds, note, weight); break;
       case Bloom: renderBloom(seconds, note, weight); break;
       default: renderSnap(seconds, note, weight); break;
     }
