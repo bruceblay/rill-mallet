@@ -72,6 +72,21 @@ build/render build/mallet.wav 60 42
 
 Arguments are output path, seconds, seed, and optional first family (0–6).
 
+## Flurries
+
+A melody note occasionally breaks into a few very fast repeats, sometimes
+alternating with the neighbouring scale tone. The idea is Rill Drums'
+thirty-second ratchets, where splitting one step into rapid hits was what let
+a pattern change note length rather than only add and remove notes. On a
+pitched instrument the same device reads as a roll, or as a trill when it
+alternates — and a roll is how these instruments are played in the first
+place, so Mallet takes them slightly more often than Rill Synth does.
+
+Each repeat is quieter than the one before, and a flurry is never longer than
+the space before the next note: past that it stops being an ornament and
+becomes the phrase. Only about half of generations flurry at all, since every
+piece doing it would make an ornament into a tic.
+
 ## The visuals
 
 Seven characters, drawn independently of the instrument. A new generation
