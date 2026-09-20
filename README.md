@@ -72,12 +72,38 @@ build/render build/mallet.wav 60 42
 
 Arguments are output path, seconds, seed, and optional first family (0–6).
 
+## The visuals
+
+One character per instrument, bound to it rather than shuffled. A new
+generation brings a new instrument and with it a new character; a shake
+rearranges the character it is already in, since the instrument has not
+changed.
+
+<img src="docs/images/characters.png" alt="The seven visual characters" width="720">
+
+*Top row: grain, spark, ring, swell. Bottom row: stack, wheel, snap.*
+
+- **Grain** (balafon) — a field of short bars, ragged the way a buzzing gourd is; a strike sends a column of them flipping.
+- **Spark** (glockenspiel) — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
+- **Ring** (kalimba) — every pluck pushes a ring out from the core, and the rings stay until they leave the frame.
+- **Swell** (marimba) — broad rounded bars that swell and settle, low and slow.
+- **Stack** (piano) — each note lays a band across the page and pushes the older ones up: time reads bottom to top, pitch reads as width.
+- **Wheel** (vibraphone) — a rotating wheel of sectors, which is what the instrument's fans do to its sound.
+- **Snap** (xylophone) — hard angular marks that arrive on a strike and are gone by the next one. Nothing accumulates, which is the character of the instrument.
+
+They are drawn in Rill's language — opaque shapes, hard edges, a coloured
+ground, no glow or gradient — but driven differently. Rill's families answer a
+smoothed output level; these answer individual strikes and the pitch of each
+one, which is what a mallet instrument gives you and a level meter throws
+away. Pitch is mapped against the register the generation is actually playing
+in, so a glockenspiel uses the whole frame rather than its right-hand third.
+
 ## Layout
 
 - `src/Mallet.h` — Rill's score with a sampled voice layer
 - `src/Samples.h` — generated; roughly 4 MB of multisample zones
 - `partitions_mallet.csv` — one factory app partition instead of two OTA slots, for the samples
-- `src/Light.h` — visuals, currently Rill's, to be replaced
+- `src/Resonance.h` — one visual character per instrument
 - `tools/render_kalimba.py` — renders the placeholder set
 - `tools/embed_samples.py` — WAV to header
 

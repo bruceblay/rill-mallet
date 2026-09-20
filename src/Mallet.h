@@ -68,6 +68,8 @@ class Engine {
   unsigned family = 0, tonic = 2, mode = 0;
   int initialFamily = -1;
   float brightness = 0.48f, strike = 0.008f, overtoneLife = 0.4f;
+  uint8_t pendingOnset = 0;
+  float pendingWeight = 0;
   int melodyLow = 60, melodyHigh = 84, supportLow = 55, supportHigh = 72;
   float voiceGain = 1, fmDepth = 0;
   uint32_t transition = 0;
@@ -128,6 +130,11 @@ class Engine {
       // A soft touch starts fractionally past the strike, which takes the
       // edge off the transient without needing a second set of clips.
       v.position = (1.0f - std::min(1.0f, color)) * 0.0012f * rate;
+      // Report the strike. The visuals are drawn per note rather than from
+      // the output level, which cannot tell one note from two or say
+      // anything about pitch.
+      pendingOnset = uint8_t(std::max(0, std::min(127, midi)));
+      pendingWeight = std::min(1.0f, gain * 6.0f);
       return;
     } // A full ensemble rests rather than cutting off an existing voice.
   }
@@ -424,6 +431,15 @@ class Engine {
     return (generation << 18) | (delayMode << 16) | (family << 13) | (tonic << 9) | (mode << 7) | tempo;
   }
   unsigned variation() const { return generation; }
+  // The pitch of the last strike, or 0 if none since the previous call. Read
+  // once per visual frame from the display side.
+  uint8_t drainOnset() { uint8_t note = pendingOnset; pendingOnset = 0; return note; }
+  float onsetWeight() const { return pendingWeight; }
+  unsigned instrument() const { return family % samples::instrumentCount; }
+  // The register this generation actually plays in, which is narrower than
+  // the instrument's whole range and is what the visuals should map against.
+  int melodyBottom() const { return melodyLow; }
+  int melodyTop() const { return melodyHigh; }
   unsigned bpm() const { return tempo; }
   unsigned delayType() const { return delayMode; }
   unsigned delayFrames() const { return delaySamples; }

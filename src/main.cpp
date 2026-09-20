@@ -4,18 +4,21 @@
 #include <atomic>
 #include <esp_system.h>
 #include "Mallet.h"
-#include "Light.h"
+#include "Resonance.h"
 #include "ShakeDetector.h"
 
 // Working title. Display and controls run separately from the audio producer.
 static mallet::Engine engine;
-static light::Painting painting;
+static resonance::Painting painting;
 static ShakeDetector shake;
 static bool infoVisible = false, audioFailed = false;
 static uint32_t infoAt = 0, worstVisualUs = 0;
 static int16_t buffers[3][512];
 static std::atomic<bool> playing{true}, changeRequested{false}, repaintRequested{false};
 static std::atomic<uint32_t> sceneInfo{0}, audioLevel{0};
+// Strikes cross from the audio task to the display loop: the visuals are
+// drawn per note, and a level meter cannot tell one note from two.
+static std::atomic<uint32_t> struckNote{0}, struckWeight{600};
 static std::atomic<uint32_t> worstRenderUs{0}, queueErrors{0};
 static uint8_t volume = 165;
 
@@ -31,6 +34,10 @@ void audioTask(void*) {
     uint32_t energy = 0;
     for (auto sample : buffers[index]) energy += unsigned(std::abs(int(sample)));
     audioLevel.store(energy / 512);
+    if (uint8_t struck = engine.drainOnset()) {
+      struckWeight.store(uint32_t(engine.onsetWeight() * 1000));
+      struckNote.store(struck);
+    }
     if (elapsed > worstRenderUs) worstRenderUs = elapsed;
     while (!M5.Speaker.playRaw(buffers[index], 512, mallet::rate, false, 1, 0)) {
       ++queueErrors;
@@ -87,6 +94,8 @@ void setup() {
   M5.Display.setRotation(1);
   M5.Display.setBrightness(100);
   M5.Speaker.setVolume(volume);
+  painting.setCharacter(engine.instrument());
+  painting.setRegister(engine.melodyBottom(), engine.melodyTop());
   painting.render(0,0);
   M5.Display.pushImage(0,0,240,135,reinterpret_cast<const lgfx::rgb565_t*>(painting.pixels()));
   if (!M5.Speaker.begin()) {
@@ -119,6 +128,13 @@ void loop() {
   }
   static uint32_t frameAt = 0;
   const bool newVisual = repaintRequested.exchange(false);
+  if (newMusic) {
+    // A new generation brings a new instrument, and the character follows it.
+    painting.setCharacter(engine.instrument());
+    painting.setRegister(engine.melodyBottom(), engine.melodyTop());
+  }
+  // A shake rearranges the character rather than swapping it: the instrument
+  // has not changed, so neither should what it looks like.
   if (newMusic || newVisual) { painting.regenerate(); infoVisible=false; frameAt=now-83; }
   if (infoVisible && uint32_t(now - infoAt) >= 4000) infoVisible = false;
   static bool wasInfoVisible = false;
@@ -129,7 +145,8 @@ void loop() {
       float dt = std::min(0.25f,float(uint32_t(now-frameAt))/1000);
       frameAt = now;
       uint32_t started = micros();
-      painting.render(dt,float(audioLevel.load())/8000.0f);
+      painting.render(dt,float(audioLevel.load())/8000.0f,
+                      uint8_t(struckNote.exchange(0)),float(struckWeight.load())/1000.0f);
       M5.Display.pushImage(0,0,240,135,reinterpret_cast<const lgfx::rgb565_t*>(painting.pixels()));
       worstVisualUs = std::max(worstVisualUs,uint32_t(micros()-started));
     }
