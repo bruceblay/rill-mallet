@@ -82,15 +82,20 @@ of a generative instrument is the combinations it finds.
 
 <img src="docs/images/characters.png" alt="The seven visual characters" width="720">
 
-*Top row: grain, spark, ring, swell. Bottom row: stack, wheel, snap.*
+*Top row: split, spark, ring, trace. Bottom row: stack, bloom, snap.*
 
-- **Grain** — a field of short bars; a strike sends a column of them flipping.
+- **Split** — every strike cuts the page in two and the new region takes its own flat colour. A composition built note by note.
 - **Spark** — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
 - **Ring** — every strike pushes a ring out from the core, and the rings stay until they leave the frame.
-- **Swell** — broad rounded bars that swell and settle, low and slow.
+- **Trace** — a line that turns a corner on every strike and is drawn to it over the next fraction of a second.
 - **Stack** — each note lays a band across the page and pushes the older ones up: time reads bottom to top, pitch reads as width.
-- **Wheel** — a rotating wheel of sectors.
-- **Snap** — hard angular marks that arrive on a strike and are gone by the next one. Nothing accumulates.
+- **Bloom** — petals opening one to a strike, stepping round by the golden angle, until the rosette is full and another starts.
+- **Snap** — a strike bursts into shards that scatter from the point and fade. Nothing accumulates.
+
+Every one of them is built out of strikes. The first pass included three that
+animated on their own and only nudged when a note arrived — a rotating wheel,
+swelling bars, a shifting field — and all three read as dead, because what
+was moving had nothing to do with what was playing.
 
 They are drawn in Rill's language — opaque shapes, hard edges, a coloured
 ground, no glow or gradient — but driven differently. Rill's families answer a

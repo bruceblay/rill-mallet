@@ -29,14 +29,19 @@ class Painting {
  public:
   static constexpr unsigned width = 240, height = 135;
   static constexpr unsigned characterCount = 7;
-  // Order follows samples::instruments, which is alphabetical.
-  enum Character : unsigned { Grain = 0, Spark, Ring, Swell, Stack, Wheel, Snap };
+  enum Character : unsigned { Split = 0, Spark, Ring, Trace, Stack, Bloom, Snap };
 
  private:
   struct Color { float r, g, b; };
   struct Mark { float x, y, size, age; unsigned tint, shape; };
   struct Band { float span, offset, thickness, age; unsigned tint; };
-  struct Lozenge { float x, y, w, h, target, rate; unsigned tint; };
+  // Split: a flat region of the page, and how far its newest edge has slid
+  // into place.
+  struct Region { float x0, y0, x1, y1, open; unsigned tint; };
+  // Bloom: one petal, and how far it has grown out of the centre.
+  struct Petal { float angle, length, width, grown; unsigned tint; };
+  // Trace: one corner of the drawn line.
+  struct Corner { float x, y, drawn; unsigned tint; };
 
   std::array<uint16_t, width * height> frame{};
   std::array<float, 257> wave{};
@@ -55,12 +60,16 @@ class Painting {
   unsigned markCount = 0, nextMark = 0;
   std::array<Band, 16> bands{};
   unsigned bandCount = 0;
-  std::array<Lozenge, 7> lozenges{};
-  unsigned lozengeCount = 0;
+  std::array<Region, 22> regions{};
+  unsigned regionCount = 0;
+  std::array<Petal, 20> petals{};
+  unsigned petalCount = 0;
+  std::array<Corner, 26> corners{};
+  unsigned cornerCount = 0;
   std::array<float, 12> rings{};
   unsigned ringCount = 0, nextRing = 0;
-  float wheelTurn = 0, wheelRate = 0.05f, grainShift = 0, clearAt = 0;
-  unsigned sectors = 6;
+  float clearAt = 0, gutter = 2, bloomTurn = 0, petalShape = 0;
+  unsigned traceRun = 0;
   int registerLow = 48, registerHigh = 84;
 
   unsigned random() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return rng; }
@@ -170,34 +179,8 @@ class Painting {
     return std::max(0.0f, std::min(1.0f, t));
   }
 
-  // Balafon: a grainy field of short bars, ragged the way a buzzing gourd is.
-  // A strike sends a column of them flipping.
-  void renderGrain(float dt, uint8_t note, float weight) {
-    if (note) { grainShift = place(note); marks[0].age = 1.0f + weight; }
-    marks[0].age = std::max(0.0f, marks[0].age - dt * 1.6f);
-    clear();
-    unsigned rows = 7 + unsigned(parameters[0] * 5.0f);
-    unsigned columns = 13 + unsigned(parameters[1] * 9.0f);
-    float cw = float(width) / float(columns), ch = float(height) / float(rows);
-    float strike = marks[0].age;
-    for (unsigned row = 0; row < rows; ++row)
-      for (unsigned col = 0; col < columns; ++col) {
-        float u = (float(col) + 0.5f) / float(columns);
-        float jitter = fsin(u * 7.3f + float(row) * 0.37f + phase * 0.05f);
-        float near_ = 1.0f - std::min(1.0f, std::abs(u - grainShift) * 6.0f);
-        float lift = strike * near_;
-        float w = cw * (0.42f + 0.34f * (jitter * 0.5f + 0.5f) + lift * 0.5f);
-        float h = ch * (0.30f + 0.16f * lift);
-        float cx = float(col) * cw + cw * 0.5f;
-        float cy = float(row) * ch + ch * 0.5f + jitter * ch * 0.12f;
-        unsigned tint = (row + col + unsigned(evolving[0] * 3.0f)) % 3;
-        rect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f,
-             wash(ink[tint], lift > 0.25f ? 0.0f : 0.30f));
-      }
-  }
-
-  // Glockenspiel: small precise marks on an empty page, one per strike,
-  // accumulating until the page is full and a new one is started.
+  // Small precise marks on an empty page, one per strike, accumulating until
+  // the page is full and a new one is started.
   void renderSpark(float dt, uint8_t note, float weight) {
     if (note) {
       Mark& m = marks[nextMark];
@@ -235,9 +218,8 @@ class Painting {
     }
   }
 
-  // Kalimba: every pluck pushes a ring out from the core, and the rings stay
-  // until they leave the frame. Radial, like the instrument and the way it is
-  // held.
+  // Every strike pushes a ring out from the core, and the rings stay until
+  // they leave the frame.
   void renderRing(float dt, uint8_t note, float weight) {
     if (note) {
       rings[nextRing] = 3.0f + weight * 5.0f;
@@ -264,26 +246,8 @@ class Painting {
     }
   }
 
-  // Marimba: broad rounded bars that swell and settle. Low and slow, the way
-  // the instrument sits under everything else.
-  void renderSwell(float dt, uint8_t note, float weight) {
-    if (note) {
-      unsigned pick = unsigned(place(note) * float(lozengeCount)) % lozengeCount;
-      lozenges[pick].target = 0.7f + weight * 0.9f;
-    }
-    clear();
-    for (unsigned i = 0; i < lozengeCount; ++i) {
-      Lozenge& l = lozenges[i];
-      l.target += (0.45f - l.target) * std::min(1.0f, dt * 0.55f);
-      l.rate += (l.target - l.rate) * std::min(1.0f, dt * 4.0f);
-      float drift = fsin(phase * (0.012f + float(i) * 0.004f) + float(i) * 0.31f);
-      lozenge(l.x + drift * 16.0f, l.y, l.w * l.rate, l.h * (0.7f + l.rate * 0.5f),
-              wash(ink[l.tint], i % 3 == 1 ? 0.32f : 0.0f));
-    }
-  }
-
-  // Piano: each note lays a band across the page and pushes the older ones
-  // up. Time reads bottom to top, pitch reads as width.
+  // Each note lays a band across the page and pushes the older ones up. Time
+  // reads bottom to top, pitch reads as width.
   void renderStack(float dt, uint8_t note, float weight) {
     if (note) {
       for (unsigned i = bands.size() - 1; i > 0; --i) bands[i] = bands[i - 1];
@@ -310,71 +274,175 @@ class Painting {
     }
   }
 
-  // Vibraphone: a rotating wheel of sectors, which is what the instrument's
-  // fans do to its sound. Strikes shift the phase rather than the shape, so
-  // the rotation never stutters.
-  void renderWheel(float dt, uint8_t note, float weight) {
-    if (note) wheelTurn += weight * 0.03f;
-    wheelTurn += dt * wheelRate * (0.7f + breath * 0.8f);
-    clear();
-    float cx = 120, cy = 67;
-    float outer = 108 + evolving[0] * 40;
-    float inner = 14 + evolving[1] * 26;
-    for (unsigned s = 0; s < sectors; ++s) {
-      if (s % 2) continue;
-      float a0 = wheelTurn + float(s) / float(sectors);
-      float a1 = a0 + 1.0f / float(sectors);
-      // Sectors are drawn as fans of triangles, which keeps every edge hard.
-      unsigned steps = 12;
-      for (unsigned k = 0; k < steps; ++k) {
-        float t0 = a0 + (a1 - a0) * float(k) / float(steps);
-        float t1 = a0 + (a1 - a0) * float(k + 1) / float(steps);
-        triangle(cx + fcos(t0) * inner, cy + fsin(t0) * inner * 0.62f,
-                 cx + fcos(t0) * outer, cy + fsin(t0) * outer * 0.62f,
-                 cx + fcos(t1) * outer, cy + fsin(t1) * outer * 0.62f,
-                 wash(ink[(s / 2) % 3], 0.0f));
-        triangle(cx + fcos(t0) * inner, cy + fsin(t0) * inner * 0.62f,
-                 cx + fcos(t1) * outer, cy + fsin(t1) * outer * 0.62f,
-                 cx + fcos(t1) * inner, cy + fsin(t1) * inner * 0.62f,
-                 wash(ink[(s / 2) % 3], 0.0f));
-      }
-    }
-    ring(cx, cy, inner + 3, 3, wash(ink[2], 0.2f));
-  }
-
-  // Xylophone: hard angular marks that appear on a strike and are gone by the
-  // next one. Nothing accumulates, which is the whole character of the
-  // instrument.
+  // Hard angular marks that arrive on a strike and are gone by the next. A
+  // strike bursts rather than lands: the shards carry the attack, which is
+  // what a single flat triangle could not.
   void renderSnap(float dt, uint8_t note, float weight) {
     if (note) {
-      Mark& m = marks[0];
-      m.x = 30 + place(note) * 180;
-      m.y = 30 + range(0.0f, 76.0f);
-      m.size = 26.0f + weight * 40.0f;
-      m.tint = unsigned(place(note) * 3.0f) % 3;
-      // Triangles and chevrons twice as often as bars: the angular shapes
-      // are the character, and a page of bars is just a page of bars.
-      m.shape = random() % 5 < 2 ? 0u : (random() % 3 < 2 ? 1u : 2u);
-      m.age = 1;
-      if (markCount < 4) ++markCount;
-      for (unsigned i = markCount - 1; i > 0; --i) marks[i] = marks[i - 1];
-      marks[0] = m;
+      if (markCount < marks.size()) markCount += 5;
+      for (unsigned i = markCount - 1; i >= 5; --i) marks[i] = marks[i - 5];
+      float x = 34 + place(note) * 172, y = 34 + range(0.0f, 68.0f);
+      float spread = 26.0f + weight * 44.0f;
+      // Five shards from one point, thrown outward. A strike used to put down
+      // a single flat triangle, which read as a shape appearing rather than
+      // as something being struck.
+      for (unsigned k = 0; k < 5; ++k) {
+        Mark& m = marks[k];
+        float a = unit();
+        float reach = spread * range(0.35f, 1.25f);
+        m.x = x + fcos(a) * reach;
+        m.y = y + fsin(a) * reach * 0.7f;
+        m.size = (15.0f + weight * 22.0f) * range(0.55f, 1.25f);
+        m.tint = (unsigned(place(note) * 3.0f) + k) % 3;
+        m.shape = k % 3;
+        m.age = 1;
+      }
     }
     clear();
     for (unsigned i = 0; i < markCount; ++i) {
       Mark& m = marks[i];
-      m.age = std::max(0.0f, m.age - dt * (0.42f + float(i) * 0.30f));
+      m.age = std::max(0.0f, m.age - dt * (0.20f + float(i / 5) * 0.28f));
       if (m.age <= 0) continue;
-      float s = m.size * (0.55f + 0.45f * m.age);
-      uint16_t c = wash(ink[(m.tint + i) % 3], i ? 0.42f : 0.0f);
+      float s = m.size * (0.45f + 0.55f * m.age);
+      uint16_t c = wash(ink[m.tint], i < 5 ? 0.0f : 0.40f);
       if (m.shape == 0)
         triangle(m.x - s * 0.5f, m.y + s * 0.4f, m.x + s * 0.5f, m.y + s * 0.4f, m.x, m.y - s * 0.6f, c);
       else if (m.shape == 1) {
-        // A chevron: two bars meeting at a point.
         triangle(m.x - s * 0.6f, m.y + s * 0.2f, m.x, m.y - s * 0.4f, m.x, m.y + s * 0.5f, c);
         triangle(m.x + s * 0.6f, m.y + s * 0.2f, m.x, m.y - s * 0.4f, m.x, m.y + s * 0.5f, c);
       } else
-        rect(m.x - s * 0.18f, m.y - s * 0.6f, m.x + s * 0.18f, m.y + s * 0.6f, c);
+        rect(m.x - s * 0.2f, m.y - s * 0.55f, m.x + s * 0.2f, m.y + s * 0.55f, c);
+    }
+  }
+
+  // The page is cut in two by every strike, and each new region takes its own
+  // flat colour: a composition built note by note rather than animated. The
+  // newest edge slides into place, so the only movement on screen is movement
+  // a note caused.
+  void renderSplit(float dt, uint8_t note, float weight) {
+    if (note && regionCount < regions.size() - 1) {
+      // Cut the largest region, which keeps the page subdividing evenly
+      // instead of shredding one corner.
+      unsigned pick = 0;
+      float widest = 0;
+      for (unsigned i = 0; i < regionCount; ++i) {
+        float area = (regions[i].x1 - regions[i].x0) * (regions[i].y1 - regions[i].y0);
+        if (area > widest) { widest = area; pick = i; }
+      }
+      Region& parent = regions[pick];
+      float w = parent.x1 - parent.x0, h = parent.y1 - parent.y0;
+      if (w > 14 && h > 12) {
+        float at = 0.30f + place(note) * 0.40f;
+        Region child = parent;
+        if (w * 0.62f > h) {
+          float cut = parent.x0 + w * at;
+          child.x0 = cut; parent.x1 = cut;
+        } else {
+          float cut = parent.y0 + h * at;
+          child.y0 = cut; parent.y1 = cut;
+        }
+        child.tint = (parent.tint + 1 + unsigned(weight * 2.0f)) % 3;
+        child.open = 0;
+        parent.open = 1;
+        regions[regionCount++] = child;
+      }
+    }
+    if (regionCount >= regions.size() - 1) {
+      clearAt -= dt;
+      if (clearAt <= 0) { startPage(); }
+    } else {
+      clearAt = 2.5f;
+    }
+    clear();
+    for (unsigned i = 0; i < regionCount; ++i) {
+      Region& r = regions[i];
+      r.open = std::min(1.0f, r.open + dt * 5.0f);
+      float w = (r.x1 - r.x0) * r.open, h = (r.y1 - r.y0) * r.open;
+      float cx = (r.x0 + r.x1) * 0.5f, cy = (r.y0 + r.y1) * 0.5f;
+      static const float tints[3] = {0.0f, 0.34f, 0.62f};
+      rect(cx - w * 0.5f + gutter, cy - h * 0.5f + gutter,
+           cx + w * 0.5f - gutter, cy + h * 0.5f - gutter,
+           wash(ink[r.tint], tints[(i + r.tint) % 3]));
+    }
+  }
+  void startPage() {
+    regionCount = 1;
+    regions[0] = Region{0, 0, float(width), float(height), 1, unsigned(random() % 3)};
+    clearAt = 2.5f;
+    gutter = 1.0f + unit() * 3.0f;
+  }
+
+  // Petals opening one to a strike, at an angle the pitch sets, until the
+  // rosette is full and another starts. The wheel this replaces turned on its
+  // own whatever was played, which is the definition of not listening.
+  void renderBloom(float dt, uint8_t note, float weight) {
+    if (note) {
+      if (petalCount >= petals.size()) { petalCount = 0; bloomTurn = unit(); petalShape = range(0.1f, 0.9f); }
+      Petal& p = petals[petalCount++];
+      // Successive petals step round by the golden angle, offset by pitch, so
+      // a rosette fills evenly however the melody moves.
+      p.angle = bloomTurn + float(petalCount) * 0.381966f + (place(note) - 0.5f) * 0.12f;
+      p.length = 40 + weight * 48 + place(note) * 30;
+      p.width = 0.038f + petalShape * 0.055f;
+      p.tint = petalCount % 3;
+      p.grown = 0;
+    }
+    float cx = 120 + (evolving[0] - 0.5f) * 34, cy = 67 + (evolving[1] - 0.5f) * 22;
+    clear();
+    for (unsigned i = 0; i < petalCount; ++i) {
+      Petal& p = petals[i];
+      p.grown = std::min(1.0f, p.grown + dt * 4.5f);
+      float ease = p.grown * p.grown * (3 - 2 * p.grown);
+      float length = p.length * ease;
+      float a0 = p.angle - p.width, a1 = p.angle + p.width;
+      static const float tints[3] = {0.0f, 0.0f, 0.36f};
+      uint16_t c = wash(ink[p.tint], tints[i % 3]);
+      // Each petal is a narrow fan of triangles, so its outer edge is a curve
+      // and every edge stays hard.
+      unsigned steps = 4;
+      for (unsigned k = 0; k < steps; ++k) {
+        float t0 = a0 + (a1 - a0) * float(k) / float(steps);
+        float t1 = a0 + (a1 - a0) * float(k + 1) / float(steps);
+        triangle(cx, cy,
+                 cx + fcos(t0) * length, cy + fsin(t0) * length * 0.66f,
+                 cx + fcos(t1) * length, cy + fsin(t1) * length * 0.66f, c);
+      }
+    }
+    disc(cx, cy, 5 + breath * 4, wash(ink[2], 0.15f));
+  }
+
+  // A line that turns a corner on every strike and is drawn to the new corner
+  // over the next fraction of a second: the page fills the way a plotter
+  // fills one, and stops dead when the music does.
+  void renderTrace(float dt, uint8_t note, float weight) {
+    if (note) {
+      if (cornerCount >= corners.size() || corners[cornerCount ? cornerCount - 1 : 0].x > float(width) - 12) {
+        cornerCount = 0;
+        ++traceRun;
+      }
+      Corner& c = corners[cornerCount++];
+      float step = 14.0f + weight * 18.0f + evolving[0] * 14.0f;
+      c.x = cornerCount == 1 ? 8.0f : corners[cornerCount - 2].x + step;
+      c.y = 14 + (1.0f - place(note)) * 106;
+      c.tint = (traceRun + cornerCount) % 3;
+      c.drawn = 0;
+    }
+    clear();
+    for (unsigned i = 1; i < cornerCount; ++i) {
+      Corner& c = corners[i];
+      c.drawn = std::min(1.0f, c.drawn + dt * 6.0f);
+      const Corner& from = corners[i - 1];
+      float x = from.x + (c.x - from.x) * c.drawn, y = from.y + (c.y - from.y) * c.drawn;
+      uint16_t colour = wash(ink[c.tint], 0.0f);
+      // Three passes across the direction of travel: one pixel of line
+      // disappears on this panel, and a solid bar is not a drawing.
+      float dx = c.x - from.x, dy = c.y - from.y;
+      float length = std::sqrt(dx * dx + dy * dy);
+      float ox = length > 0.001f ? -dy / length : 0, oy = length > 0.001f ? dx / length : 0;
+      for (int k = -2; k <= 2; ++k)
+        line(from.x + ox * float(k), from.y + oy * float(k), x + ox * float(k), y + oy * float(k), colour);
+      disc(from.x, from.y, 4.0f, wash(ink[(c.tint + 1) % 3], 0.0f));
+      if (c.drawn >= 1.0f) disc(c.x, c.y, 4.0f, wash(ink[(c.tint + 1) % 3], 0.0f));
     }
   }
 
@@ -436,21 +504,12 @@ class Painting {
     ringCount = 0; nextRing = 0;
     rings.fill(0);
     clearAt = range(14.0f, 22.0f);
-    grainShift = 0.5f;
-    wheelTurn = unit();
-    wheelRate = range(0.018f, 0.055f) * (unit() < 0.5f ? -1.0f : 1.0f);
-    sectors = 2 * (2 + unsigned(unit() * 4.0f));
-    lozengeCount = 4 + unsigned(unit() * 3.0f);
-    for (unsigned i = 0; i < lozengeCount; ++i) {
-      Lozenge& l = lozenges[i];
-      l.x = range(70.0f, 170.0f);
-      l.y = 20 + float(i) * (95.0f / float(lozengeCount)) + range(-6.0f, 6.0f);
-      l.w = range(90.0f, 190.0f);
-      l.h = range(14.0f, 30.0f);
-      l.target = 0.45f;
-      l.rate = 0.45f;
-      l.tint = i % 3;
-    }
+    startPage();
+    petalCount = 0;
+    bloomTurn = unit();
+    petalShape = range(0.1f, 0.9f);
+    cornerCount = 0;
+    traceRun = unsigned(random() % 3);
     clear();
   }
 
@@ -465,12 +524,12 @@ class Painting {
     breath += (std::max(0.0f, std::min(1.0f, audio)) - breath) * std::min(1.0f, seconds * 5);
     evolve(seconds);
     switch (character) {
-      case Grain: renderGrain(seconds, note, weight); break;
+      case Split: renderSplit(seconds, note, weight); break;
       case Spark: renderSpark(seconds, note, weight); break;
       case Ring: renderRing(seconds, note, weight); break;
-      case Swell: renderSwell(seconds, note, weight); break;
+      case Trace: renderTrace(seconds, note, weight); break;
       case Stack: renderStack(seconds, note, weight); break;
-      case Wheel: renderWheel(seconds, note, weight); break;
+      case Bloom: renderBloom(seconds, note, weight); break;
       default: renderSnap(seconds, note, weight); break;
     }
   }
