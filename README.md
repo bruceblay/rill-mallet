@@ -1,6 +1,8 @@
+<img src="docs/images/characters.png" alt="Rill Mallet: concentric rings, opening petals, cut-paper blocks and turning tiles" width="800">
+
 # Rill Mallet
 
-A sampled sibling to [Rill](../rill). Same composer, different voice: instead of
+A sampled sibling to [Rill Synth](https://github.com/bruceblay/rill-synth). Same composer, different voice: instead of
 synthesizing each note, it plays multisampled tuned percussion. Seven
 instruments, one per generation: balafon, glockenspiel, kalimba, marimba,
 piano, vibraphone and xylophone.
@@ -80,9 +82,15 @@ character again without touching the sound. Pairing them one to one turns
 seven instruments and seven characters into seven fixed pieces, and the point
 of a generative instrument is the combinations it finds.
 
-<img src="docs/images/characters.png" alt="The seven visual characters" width="720">
+| Spark | Trace |
+| --- | --- |
+| ![Spark](docs/images/spark.png) | ![Trace](docs/images/trace.png) |
+| **Split** | **Fold** |
+| ![Split](docs/images/split.png) | ![Fold](docs/images/fold.png) |
+| **Bloom** | **Snap** |
+| ![Bloom](docs/images/bloom.png) | ![Snap](docs/images/snap.png) |
 
-*Top row: split, spark, ring, trace. Bottom row: fold, bloom, snap.*
+*Actual 240 × 135 renderer captures driven by the Mallet engine. The lead image shows Ring, Bloom, Split and Fold. Regenerate with `python3 tools/screenshots.py`.*
 
 - **Split** — every strike cuts the page in two and the new region takes its own flat colour. A composition built note by note.
 - **Spark** — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
