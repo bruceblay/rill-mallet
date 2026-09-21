@@ -32,10 +32,12 @@ with tempfile.TemporaryDirectory() as directory:
         assert len(captures[name]) == 240 * 135 * 3
         png(OUT / f'{name}.png', 240, 135, captures[name])
     # 2× native pixels, with a small consistent gutter. Never interpolate artwork.
-    width, height, gap = 1008, 588, 16
+    width, height, gap = 2000, 588, 16
     pixels = bytearray(bytes([237, 236, 229]) * width * height)
-    for index, name in enumerate(['ring', 'bloom', 'split', 'fold']):
-        x0, y0 = gap + (index % 2) * (480 + gap), gap + (index // 2) * (270 + gap)
+    for index, name in enumerate(['ring', 'spark', 'snap', 'bloom', 'split', 'fold', 'trace']):
+        row, column = (0, index) if index < 4 else (1, index - 4)
+        row_width = (4 if row == 0 else 3) * 480 + (3 if row == 0 else 2) * gap
+        x0, y0 = (width - row_width) // 2 + column * (480 + gap), gap + row * (270 + gap)
         data = captures[name]
         for y in range(270):
             for x in range(480):

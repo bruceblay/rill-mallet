@@ -1,4 +1,4 @@
-<img src="docs/images/characters.png" alt="Rill Mallet: concentric rings, opening petals, cut-paper blocks and turning tiles" width="800">
+<img src="docs/images/characters.png" alt="All seven Rill Mallet visuals: Ring, Spark, Snap, Bloom, Split, Fold and Trace" width="800">
 
 # Rill Mallet
 
@@ -90,7 +90,7 @@ of a generative instrument is the combinations it finds.
 | **Bloom** | **Snap** |
 | ![Bloom](docs/images/bloom.png) | ![Snap](docs/images/snap.png) |
 
-*Actual 240 × 135 renderer captures driven by the Mallet engine. The lead image shows Ring, Bloom, Split and Fold. Regenerate with `python3 tools/screenshots.py`.*
+*Actual 240 × 135 renderer captures driven by the Mallet engine. The lead image shows all seven: Ring, Spark, Snap and Bloom across the top; Split, Fold and Trace below. Regenerate with `python3 tools/screenshots.py`.*
 
 - **Split** — every strike cuts the page in two and the new region takes its own flat colour. A composition built note by note.
 - **Spark** — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
