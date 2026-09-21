@@ -492,8 +492,10 @@ class Painting {
   // A new character, never the one already showing, and a new arrangement of
   // it. Called on a new generation and on a shake alike.
   void regenerate() {
-    character = count ? (character + 1 + random() % (characterCount - 1)) % characterCount
-                      : random() % characterCount;
+    // Open on concentric rings; subsequent changes still select another character.
+    const unsigned choice = random();
+    character = count ? (character + 1 + choice % (characterCount - 1)) % characterCount
+                      : Ring;
     arrange();
   }
 

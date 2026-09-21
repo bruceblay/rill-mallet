@@ -10,6 +10,14 @@ uint32_t hash(const resonance::Painting& p) {
   return value;
 }
 int main() {
+  for (uint32_t seed : {1u, 17u, 42u, 999u}) {
+    resonance::Painting initial(seed);
+    assert(initial.visualFamily() == resonance::Painting::Ring);
+    initial.regenerate();
+    assert(initial.visualFamily() != resonance::Painting::Ring);
+    initial.seed(seed);
+    assert(initial.visualFamily() == resonance::Painting::Ring);
+  }
   // Character and instrument are drawn separately, so a run of generations
   // has to reach every character on its own.
   {
