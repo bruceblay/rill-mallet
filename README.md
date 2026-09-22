@@ -2,6 +2,8 @@
 
 # Rill Mallet
 
+**rill** /rɪl/ *noun* — a small stream or a tiny, shallow channel cut into soil by running water.
+
 A generative tuned-percussion instrument for the **M5Stack StickS3**. Balafon, glockenspiel, kalimba, marimba, piano, vibraphone and xylophone play evolving melodies, paired with seven visual characters. Tap for a new piece. Shake for a new visual.
 
 [Play Rill Mallet](https://rillsound.com/mallet) · [Build and install](#build-and-install)
