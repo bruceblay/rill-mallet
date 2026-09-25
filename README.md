@@ -52,6 +52,7 @@ in, so a glockenspiel uses the whole frame rather than its right-hand third.
 | Front button: tap | Generate a new piece with a new instrument and visual |
 | Front button: hold for about 0.65 seconds | Fade sound out or in |
 | Side button: tap | Cycle volume and show the data view |
+| Side button: hold | Slow the whole ensemble by 4 BPM, starting on the bar after next; below 52 it comes round to 100 |
 | Shake | Select a new visual without changing the music |
 
 Near other Rill devices (Synth, Mallet, Drums or World) it joins an ensemble over ESP-NOW with no setup: the lowest device id keeps the clock, every device plays on the shared tempo and bar line, and a new piece on a Synth or Mallet proposes its key to the others. In an ensemble a tap waits for the next shared bar, so a new piece comes in on the downbeat without leaving the beat. See [how it works](https://github.com/bruceblay/rill-synth/blob/main/SYNC-DESIGN.md).
