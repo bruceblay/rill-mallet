@@ -6,7 +6,7 @@
 
 A generative tuned-percussion instrument for the **M5Stack StickS3**. Balafon, glockenspiel, kalimba, marimba, piano, vibraphone and xylophone play evolving melodies, paired with seven visual characters. Tap for a new piece. Shake for a new visual.
 
-[Play Rill Mallet](https://rillsound.com/mallet) · [Build and install](#build-and-install)
+[Play Rill Mallet](https://rillsound.com/mallet) · [Get on M5Burner](https://burner.m5stack.com/firmware/2102131755317981185) · [Build and install](#build-and-install)
 
 **Rill family:** [Synth](https://github.com/bruceblay/rill-synth) · [Mallet](https://github.com/bruceblay/rill-mallet) · [World](https://github.com/bruceblay/rill-world) · [Drums](https://github.com/bruceblay/rill-drums) · [Rill Sound](https://rillsound.com)
 
