@@ -52,11 +52,11 @@ class Painting {
 
   std::array<Mark, 40> marks{};
   unsigned markCount = 0, nextMark = 0;
-  // Kumiko: how far each piece of the lattice has grown in, and its colour.
-  // The geometry is worked out when it is needed, not stored.
-  std::array<float, 360> pieces{};
-  std::array<uint8_t, 360> pieceTints{};
-  unsigned piecesFilled = 0, piecesShown = 0;
+  // Kumiko: one motif of the pattern per strike, growing in, drifting and
+  // fading back into the paper.
+  struct Motif { float x, y, size, age, life, vx, vy; unsigned tint, form; };
+  std::array<Motif, 28> motifs{};
+  unsigned motifCount = 0, nextMotif = 0;
   int heardLow = 60, heardHigh = 72;
   // Ripple: each disc's swell, the knock waiting for it, and how much of the
   // playing it still remembers.
@@ -69,7 +69,7 @@ class Painting {
   unsigned petalCount = 0;
   std::array<float, 12> rings{};
   unsigned ringCount = 0, nextRing = 0;
-  float clearAt = 0, bloomTurn = 0, petalShape = 0;
+  float bloomTurn = 0, petalShape = 0;
   int registerLow = 48, registerHigh = 84;
 
   unsigned random() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return rng; }
@@ -286,149 +286,98 @@ class Painting {
     }
   }
 
-  // A kumiko panel: a lattice of strips over paper, cut into pieces, and
-  // each strike fills one piece at the column its pitch sets, growing out
-  // from its centre. The lattice is there from the start; what the music
-  // adds is the colour, until the panel is nearly full and a new one is
-  // started. Three traditional lattices: asanoha, the hemp leaf, whose
-  // triangles are cut in three from the centre; uroko, the scales, whose
-  // triangles are whole; and kikko, the tortoise shell, whose hexagons are cut
-  // into three diamonds and so fill in as stars and stacked cubes.
+  // Kumiko motifs without the lattice. Each strike sets down one piece of
+  // the pattern at a size of its own, at the column its pitch sets: a
+  // hemp-leaf star for asanoha, a scale for uroko, a cube for kikko. It grows
+  // in with a little overshoot, drifts on a slow shared wind, and fades back
+  // into the paper over several seconds, so the page is as busy as the music
+  // and empties when it stops. A fixed lattice was tried first and read as a
+  // board being filled in rather than something being played.
   //
   // Pitch is spread over the notes actually heard rather than the whole
-  // register: a melody that keeps to a few notes would otherwise fill one
-  // side of the panel and leave the other bare.
+  // register: a melody that keeps to a few notes would otherwise put every
+  // motif on one side of the page.
   float spread(uint8_t note) {
     heardLow = std::min(heardLow, int(note));
     heardHigh = std::max(heardHigh, int(note));
     float t = (float(note) - float(heardLow)) / float(std::max(5, heardHigh - heardLow));
     return std::max(0.0f, std::min(1.0f, t));
   }
-  // The corners of one triangle of the asanoha and uroko grid, pointing up
-  // or down.
-  static void gridTriangle(unsigned row, unsigned t, float* xs, float* ys) {
-    const float side = 32, rise = 27.7f;
-    float x = float(t / 2) * side - (row % 2 ? side * 0.5f : 0) - 8, y = float(row) * rise - 3;
-    if (t % 2 == 0) {
-      xs[0] = x; ys[0] = y + rise; xs[1] = x + side; ys[1] = y + rise; xs[2] = x + side * 0.5f; ys[2] = y;
-    } else {
-      xs[0] = x + side * 0.5f; ys[0] = y; xs[1] = x + side * 1.5f; ys[1] = y; xs[2] = x + side; ys[2] = y + rise;
-    }
-  }
-  static constexpr unsigned gridRows = 6, gridTriangles = 20, shellRows = 7, shellColumns = 10;
-  // The centre and corners of one hexagon of the kikko lattice, point up.
-  void shell(unsigned row, unsigned column, float& cx, float& cy, float* xs, float* ys) const {
-    const float r = 17, across = r * 1.732f;
-    cx = float(column) * across + (row % 2 ? across * 0.5f : 0) - 6;
-    cy = float(row) * r * 1.5f - 4;
-    for (unsigned k = 0; k < 6; ++k) {
-      xs[k] = cx + fcos(float(k) / 6 + 1.0f / 12) * r;
-      ys[k] = cy + fsin(float(k) / 6 + 1.0f / 12) * r;
-    }
-  }
-  unsigned pieceCount() const {
-    return character == Asanoha ? gridRows * gridTriangles * 3
-         : character == Uroko ? gridRows * gridTriangles : shellRows * shellColumns * 3;
-  }
-  // One piece: the point it grows from, and the corners it is fanned to
-  // from there, in order.
-  unsigned piece(unsigned i, float& ox, float& oy, float* xs, float* ys) const {
-    float vx[6], vy[6];
-    if (character == Kikko) {
-      shell(i / 3 / shellColumns, i / 3 % shellColumns, ox, oy, vx, vy);
-      unsigned k = i % 3 * 2;
-      for (unsigned j = 0; j < 3; ++j) { xs[j] = vx[(k + j) % 6]; ys[j] = vy[(k + j) % 6]; }
-      return 3;
-    }
-    unsigned cell = character == Asanoha ? i / 3 : i;
-    gridTriangle(cell / gridTriangles, cell % gridTriangles, vx, vy);
-    ox = (vx[0] + vx[1] + vx[2]) / 3; oy = (vy[0] + vy[1] + vy[2]) / 3;
-    if (character == Asanoha) {
-      unsigned k = i % 3;
-      xs[0] = vx[k]; ys[0] = vy[k]; xs[1] = vx[(k + 1) % 3]; ys[1] = vy[(k + 1) % 3];
-      return 2;
-    }
-    for (unsigned j = 0; j < 4; ++j) { xs[j] = vx[j % 3]; ys[j] = vy[j % 3]; }
-    return 4;
-  }
-  // Where a piece sits, for placing it by pitch and for leaving out the ones
-  // the frame cuts off.
-  bool pieceCentre(unsigned i, float& x, float& y) const {
-    float ox, oy, xs[4], ys[4];
-    unsigned n = piece(i, ox, oy, xs, ys);
-    x = ox; y = oy;
-    for (unsigned j = 0; j < n; ++j) { x += xs[j]; y += ys[j]; }
-    x /= float(n + 1); y /= float(n + 1);
-    return x > 4 && y > 4 && x < float(width) - 4 && y < float(height) - 4;
-  }
-  // A strip two pixels wide, thickened across its own direction so the
-  // horizontals and the diagonals read as the same wood.
-  void strip(float x0, float y0, float x1, float y1, uint16_t c) {
-    line(x0, y0, x1, y1, c);
-    if (std::abs(x1 - x0) > std::abs(y1 - y0)) line(x0, y0 - 1, x1, y1 - 1, c);
-    else line(x0 - 1, y0, x1 - 1, y1, c);
+  void quad(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy, uint16_t c) {
+    triangle(ax, ay, bx, by, cx, cy, c);
+    triangle(ax, ay, cx, cy, dx, dy, c);
   }
   void renderKumiko(float dt, uint8_t note, float weight) {
-    const unsigned total = pieceCount();
-    if (note && clearAt > 2.0f) {
-      float at = 10 + spread(note) * 220;
-      // Try nearest the pitch first, then a little wider, so a column that
-      // is already full passes the note to its neighbour.
-      for (float reach : {16.0f, 34.0f}) {
-        unsigned options[360], n = 0;
-        for (unsigned i = 0; i < total; ++i) {
-          float x, y;
-          if (pieces[i] <= 0 && pieceCentre(i, x, y) && std::abs(x - at) < reach) options[n++] = i;
-        }
-        if (!n) continue;
-        unsigned i = options[random() % n];
-        pieces[i] = 0.01f;
-        pieceTints[i] = uint8_t((unsigned(at / 40) + unsigned(weight * 2.0f) + random() % 2) % 3);
-        if (++piecesFilled >= piecesShown * 5 / 12) clearAt = 2.0f;
-        break;
-      }
-    }
-    if (clearAt <= 2.0f) {
-      clearAt -= dt;
-      if (clearAt <= 0) { pieces.fill(0); piecesFilled = 0; clearAt = 99; }
+    if (note) {
+      Motif& m = motifs[nextMotif];
+      nextMotif = (nextMotif + 1) % motifs.size();
+      if (motifCount < motifs.size()) ++motifCount;
+      m.x = 20 + spread(note) * 200 + range(-10.0f, 10.0f);
+      m.y = 18 + unit() * 99;
+      // Mostly middling, now and then one much larger, so the page has a
+      // few anchors among the smaller ones.
+      m.size = range(9.0f, 20.0f) * (0.75f + weight * 0.5f) * (unit() < 0.18f ? 1.8f : 1.0f);
+      if (character == Uroko) m.size *= 1.6f;
+      m.age = 0;
+      m.life = range(6.0f, 10.0f);
+      m.vx = range(-2.0f, 2.0f);
+      m.vy = range(-3.0f, -0.5f);
+      m.tint = random() % 3;
+      m.form = random() % 4;
     }
     clear();
-    static const float tints[3] = {0.0f, 0.22f, 0.45f};
-    for (unsigned i = 0; i < total; ++i) {
-      float& grown = pieces[i];
-      if (grown <= 0) continue;
-      grown = std::min(1.0f, grown + dt * 5.0f);
-      float ox, oy, xs[4], ys[4];
-      unsigned n = piece(i, ox, oy, xs, ys);
-      uint16_t c = wash(ink[pieceTints[i]], tints[i % 3]);
-      for (unsigned j = 0; j + 1 < n; ++j)
-        triangle(ox, oy, ox + (xs[j] - ox) * grown, oy + (ys[j] - oy) * grown,
-                 ox + (xs[j + 1] - ox) * grown, oy + (ys[j + 1] - oy) * grown, c);
-    }
-    // The strips go over the pieces, the way the wood holds the paper.
-    uint16_t wood = wash(ink[2], 0.55f);
-    float xs[6], ys[6];
-    if (character == Kikko) {
-      for (unsigned row = 0; row < shellRows; ++row)
-        for (unsigned column = 0; column < shellColumns; ++column) {
-          float cx, cy;
-          shell(row, column, cx, cy, xs, ys);
-          for (unsigned k = 0; k < 6; ++k) {
-            strip(xs[k], ys[k], xs[(k + 1) % 6], ys[(k + 1) % 6], wood);
-            if (k % 2 == 0) strip(cx, cy, xs[k], ys[k], wood);
-          }
+    float wind = (evolving[2] - 0.5f) * 6;
+    // Oldest first, so the newest strike is always on top.
+    for (unsigned k = 0; k < motifCount; ++k) {
+      Motif& m = motifs[(nextMotif + motifs.size() - motifCount + k) % motifs.size()];
+      m.age += dt;
+      if (m.age >= m.life) continue;
+      m.x += (m.vx + wind) * dt;
+      m.y += m.vy * dt;
+      // Grow in over a quarter second, overshooting a little and settling.
+      float g = std::min(1.0f, m.age * 4.0f) - 1;
+      float s = m.size * (1 + 2.7f * g * g * g + 1.7f * g * g);
+      // Hold for a second, then let down toward the ground, slowly at first.
+      float fade = std::max(0.0f, (m.age - 1.0f) / (m.life - 1.0f));
+      fade = fade * fade * 0.9f;
+      auto shade = [&](unsigned tint, float light) {
+        return wash(ink[tint % 3], std::min(0.95f, fade + light * (1 - fade)));
+      };
+      if (character == Asanoha) {
+        // Six kites, point outward, their side corners where the centres of
+        // the lattice's triangles would be, so neighbours meet edge to edge.
+        for (unsigned p = 0; p < 6; ++p) {
+          float a = float(p) / 6 + 0.25f, side = s * 0.577f;
+          quad(m.x, m.y,
+               m.x + fcos(a - 1.0f / 12) * side, m.y - fsin(a - 1.0f / 12) * side,
+               m.x + fcos(a) * s, m.y - fsin(a) * s,
+               m.x + fcos(a + 1.0f / 12) * side, m.y - fsin(a + 1.0f / 12) * side,
+               shade(m.tint + p % 2, p % 2 ? 0.3f : 0.0f));
         }
-      return;
-    }
-    for (unsigned row = 0; row < gridRows; ++row)
-      for (unsigned t = 0; t < gridTriangles; ++t) {
-        gridTriangle(row, t, xs, ys);
-        float cx = (xs[0] + xs[1] + xs[2]) / 3, cy = (ys[0] + ys[1] + ys[2]) / 3;
-        for (unsigned k = 0; k < 3; ++k) {
-          strip(xs[k], ys[k], xs[(k + 1) % 3], ys[(k + 1) % 3], wood);
-          if (character == Asanoha) line(cx, cy, xs[k], ys[k], wood);
+      } else if (character == Uroko) {
+        float up = m.form % 2 ? -1.0f : 1.0f, h = s * 0.866f;
+        float ax = m.x - s * 0.5f, ay = m.y + h * 0.5f * up, bx = m.x + s * 0.5f, by = ay;
+        float cx = m.x, cy = m.y - h * 0.5f * up;
+        triangle(ax, ay, bx, by, cx, cy, shade(m.tint, 0));
+        // Now and then a scale cut in four, the middle left as paper.
+        if (m.form >= 2)
+          triangle((ax + bx) / 2, (ay + by) / 2, (bx + cx) / 2, (by + cy) / 2, (ax + cx) / 2, (ay + cy) / 2, ground);
+      } else {
+        // A cube: three diamonds of a hexagon, the top one lightest. Now and
+        // then each face takes its own ink.
+        float vx[6], vy[6];
+        for (unsigned v = 0; v < 6; ++v) {
+          vx[v] = m.x + fcos(float(v) / 6 + 1.0f / 12) * s;
+          vy[v] = m.y + fsin(float(v) / 6 + 1.0f / 12) * s;
+        }
+        static const float lights[3] = {0.0f, 0.5f, 0.25f};  // left, top, right
+        for (unsigned f = 0; f < 3; ++f) {
+          unsigned v = f * 2 + 1;
+          quad(m.x, m.y, vx[v], vy[v], vx[(v + 1) % 6], vy[(v + 1) % 6], vx[(v + 2) % 6], vy[(v + 2) % 6],
+               shade(m.form == 3 ? m.tint + f : m.tint, lights[f]));
         }
       }
+    }
   }
 
   // A row of moons across the sky, one to each stretch of the register. A
@@ -562,16 +511,13 @@ class Painting {
 
     markCount = 0; nextMark = 0;
     for (auto& m : marks) m = Mark{};
-    pieces.fill(0);
-    piecesFilled = piecesShown = 0;
-    for (unsigned i = 0; i < pieceCount(); ++i) { float x, y; if (pieceCentre(i, x, y)) ++piecesShown; }
+    motifCount = nextMotif = 0;
     heardLow = (registerLow + registerHigh) / 2 - 3;
     heardHigh = heardLow + 6;
     swell.fill(0); knock.fill(0); memory.fill(0);
     for (unsigned i = 0; i < moonCount; ++i) moonPhase[i] = moonGoal[i] = 0.1f + unit() * 0.8f;
     ringCount = 0; nextRing = 0;
     rings.fill(0);
-    clearAt = 99;
     petalCount = 0;
     bloomTurn = unit();
     petalShape = range(0.1f, 0.9f);

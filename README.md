@@ -34,9 +34,9 @@ is the combinations it finds.
 - **Snap**: a strike bursts into shards that scatter from the point and fade. Nothing accumulates.
 - **Bloom**: petals opening one to a strike, stepping round by the golden angle, until the rosette is full and another starts.
 - **Ripple**: a row of discs on a horizon, one to each stretch of the register. A strike swells its disc and knocks its neighbours; the row keeps a trace of where the melody has been and goes still when the music does.
-- **Asanoha**: a kumiko panel in the hemp-leaf lattice. Each strike fills one piece of the lattice at the column its pitch sets, until the panel is nearly full and a new one starts.
-- **Uroko**: the same, in the scale pattern, a plain grid of triangles each filled whole.
-- **Kikko**: the same, in the tortoise-shell pattern, hexagons cut into three diamonds that fill in as stars and stacked cubes.
+- **Asanoha**: kumiko's hemp-leaf star, one to a strike, at a column set by pitch and a size of its own. Each grows in, drifts on a slow wind and fades back into the paper, so the page is as busy as the music and empties when it stops.
+- **Uroko**: the same, with the scale pattern's triangles, some cut in four with the middle left as paper.
+- **Kikko**: the same, with the tortoise-shell hexagon drawn as a cube lit from above.
 - **Moons**: a row of moons, one to each stretch of the register. A strike turns its moon a step through its phases.
 
 They are drawn in Rill's language — opaque shapes, hard edges, a coloured
