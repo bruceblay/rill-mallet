@@ -2,13 +2,13 @@
 
 # Rill Mallet
 
-**rill** /rɪl/ *noun* — a small stream or a tiny, shallow channel cut into soil by running water.
+**rill** /rɪl/ *noun*: a small stream or a tiny, shallow channel cut into soil by running water.
 
 A generative tuned-percussion instrument for the **M5Stack StickS3**. Balafon, glockenspiel, kalimba, marimba, piano, vibraphone and xylophone play evolving melodies, paired with eight visual characters. Tap for a new piece. Shake for a new visual.
 
 [Play Rill Mallet](https://rillsound.com/mallet) · [Get on M5Burner](https://burner.m5stack.com/firmware/2102131755317981185) · [Build and install](#build-and-install)
 
-**Rill family:** [Synth](https://github.com/bruceblay/rill-synth) · [Mallet](https://github.com/bruceblay/rill-mallet) · [World](https://github.com/bruceblay/rill-world) · [Drums](https://github.com/bruceblay/rill-drums) · [Rill Sound](https://rillsound.com)
+**Rill family:** [Voice](https://github.com/bruceblay/rill-voice) · [Synth](https://github.com/bruceblay/rill-synth) · [Mallet](https://github.com/bruceblay/rill-mallet) · [World](https://github.com/bruceblay/rill-world) · [Drums](https://github.com/bruceblay/rill-drums) · [Rill Sound](https://rillsound.com)
 
 ## Visuals
 
@@ -39,8 +39,8 @@ is the combinations it finds.
 - **Kikko**: the same, with the tortoise-shell hexagon drawn as a cube lit from above.
 - **Moons**: a row of moons, one to each stretch of the register. A strike turns its moon a step through its phases.
 
-They are drawn in Rill's language — opaque shapes, hard edges, a coloured
-ground, no glow or gradient — but driven differently. Rill's families answer a
+They are drawn in Rill's language (opaque shapes, hard edges, a coloured
+ground, no glow or gradient) but driven differently. Rill's families answer a
 smoothed output level; these answer individual strikes and the pitch of each
 one, which is what a mallet instrument gives you and a level meter throws
 away. Pitch is mapped against the register the generation is actually playing
@@ -56,7 +56,7 @@ in, so a glockenspiel uses the whole frame rather than its right-hand third.
 | Side button: hold | Slow the whole ensemble by 4 BPM, starting on the bar after next; below 52 it comes round to 100 |
 | Shake | Select a new visual without changing the music |
 
-Near other Rill devices (Synth, Mallet, Drums or World) it joins an ensemble over ESP-NOW with no setup: the lowest device id keeps the clock, every device plays on the shared tempo and bar line, and a new piece on a Synth or Mallet proposes its key to the others. In an ensemble a tap waits for the next shared bar, so a new piece comes in on the downbeat without leaving the beat. See [how it works](https://github.com/bruceblay/rill-synth/blob/main/SYNC-DESIGN.md).
+Near other Rill devices (Voice, Synth, Mallet, Drums or World) it joins an ensemble over ESP-NOW with no setup: the lowest device id keeps the clock, every device plays on the shared tempo and bar line, and a new piece on a Voice, Synth or Mallet proposes its key to the others. In an ensemble a tap waits for the next shared bar, so a new piece comes in on the downbeat without leaving the beat. See [how it works](https://github.com/bruceblay/rill-synth/blob/main/SYNC-DESIGN.md).
 
 ## Sound
 
@@ -101,7 +101,7 @@ python tools/fetch_vcsl.py build/samples
 python tools/embed_samples.py build/samples
 ```
 
-`tools/render_kalimba.py` synthesizes a set instead — a tine modelled as a bar
+`tools/render_kalimba.py` synthesizes a set instead: a tine modelled as a bar
 clamped at one end, partials near 1 : 6.18 : 17.3 : 33.8 with separate decays,
 a filtered strike and a body resonance. It is kept for prototyping an
 instrument no free recording exists for. Anything recorded that goes into
@@ -136,12 +136,12 @@ Arguments are output path, seconds, seed, and optional first family (0–6).
 
 ## Project layout
 
-- `src/Mallet.h` — Rill's score with a sampled voice layer
-- `src/Samples.h` — generated; roughly 4 MB of multisample zones
-- `partitions_mallet.csv` — one factory app partition instead of two OTA slots, for the samples
+- `src/Mallet.h`: Rill's score with a sampled voice layer
+- `src/Samples.h`: generated; roughly 4 MB of multisample zones
+- `partitions_mallet.csv`: one factory app partition instead of two OTA slots, for the samples
 - `src/Resonance.h`: eight independently selected visual characters
-- `tools/render_kalimba.py` — renders the placeholder set
-- `tools/embed_samples.py` — WAV to header
+- `tools/render_kalimba.py`: renders the placeholder set
+- `tools/embed_samples.py`: WAV to header
 
 ## Credits and license
 
