@@ -21,28 +21,21 @@
 // instrument is the combinations it finds. A new generation draws a new
 // instrument and a new character separately, and a shake draws a character
 // again without touching the sound, so the vibraphone can arrive under the
-// ragged field or the sparse page and neither of them is its.
+// ripple field or a kumiko panel and neither of them is its.
 //
 // Shared by firmware and the host preview tools.
 namespace resonance {
 class Painting {
  public:
   static constexpr unsigned width = 240, height = 135;
-  static constexpr unsigned characterCount = 7;
-  enum Character : unsigned { Split = 0, Spark, Ring, Trace, Fold, Bloom, Snap };
+  static constexpr unsigned characterCount = 8;
+  enum Character : unsigned { Asanoha = 0, Uroko, Ring, Kikko, Ripple, Bloom, Snap, Moons };
 
  private:
   struct Color { float r, g, b; };
   struct Mark { float x, y, size, age; unsigned tint, shape; };
-  // Fold: one cell of the grid, turning from one colour to the next.
-  struct Cell { float turn; unsigned tint, next; };
-  // Split: a flat region of the page, and how far its newest edge has slid
-  // into place.
-  struct Region { float x0, y0, x1, y1, open; unsigned tint; };
   // Bloom: one petal, and how far it has grown out of the centre.
   struct Petal { float angle, length, width, grown; unsigned tint; };
-  // Trace: one corner of the drawn line.
-  struct Corner { float x, y, drawn; unsigned tint; };
 
   std::array<uint16_t, width * height> frame{};
   std::array<float, 257> wave{};
@@ -59,18 +52,24 @@ class Painting {
 
   std::array<Mark, 40> marks{};
   unsigned markCount = 0, nextMark = 0;
-  std::array<Cell, 48> cells{};
-  unsigned columns = 6, rows = 4;
-  std::array<Region, 22> regions{};
-  unsigned regionCount = 0;
+  // Kumiko: how far each piece of the lattice has grown in, and its colour.
+  // The geometry is worked out when it is needed, not stored.
+  std::array<float, 360> pieces{};
+  std::array<uint8_t, 360> pieceTints{};
+  unsigned piecesFilled = 0, piecesShown = 0;
+  int heardLow = 60, heardHigh = 72;
+  // Ripple: each disc's swell, the knock waiting for it, and how much of the
+  // playing it still remembers.
+  static constexpr unsigned discCount = 9;
+  std::array<float, discCount> swell{}, knock{}, memory{};
+  // Moons: how far each moon has turned through its phases.
+  static constexpr unsigned moonCount = 5;
+  std::array<float, moonCount> moonPhase{}, moonGoal{};
   std::array<Petal, 20> petals{};
   unsigned petalCount = 0;
-  std::array<Corner, 26> corners{};
-  unsigned cornerCount = 0;
   std::array<float, 12> rings{};
   unsigned ringCount = 0, nextRing = 0;
-  float clearAt = 0, gutter = 2, bloomTurn = 0, petalShape = 0;
-  unsigned traceRun = 0;
+  float clearAt = 0, bloomTurn = 0, petalShape = 0;
   int registerLow = 48, registerHigh = 84;
 
   unsigned random() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return rng; }
@@ -180,45 +179,6 @@ class Painting {
     return std::max(0.0f, std::min(1.0f, t));
   }
 
-  // Small precise marks on an empty page, one per strike, accumulating until
-  // the page is full and a new one is started.
-  void renderSpark(float dt, uint8_t note, float weight) {
-    if (note) {
-      Mark& m = marks[nextMark];
-      nextMark = (nextMark + 1) % marks.size();
-      if (markCount < marks.size()) ++markCount;
-      m.x = 16 + place(note) * 208;
-      // Down the page as they arrive, wrapped, so a page fills evenly instead
-      // of piling wherever the melody happens to sit.
-      m.y = 14 + float((markCount * 37) % 101) + range(-5.0f, 5.0f);
-      if (m.y > 121) m.y -= 100;
-      m.size = 3.4f + weight * 6.0f;
-      m.tint = (markCount + unsigned(place(note) * 3.0f)) % 3;
-      m.shape = random() % 3;
-      m.age = 0;
-    }
-    clearAt -= dt;
-    if (clearAt <= 0) { clearAt = range(14.0f, 22.0f); markCount = 0; nextMark = 0; }
-    clear();
-    // Echoes first, then the marks: a ring punches back to the ground, and
-    // drawn afterwards it would take a bite out of whatever it overlapped.
-    for (unsigned i = 0; i < markCount; ++i) {
-      const Mark& m = marks[i];
-      if (i + 3 >= markCount) ring(m.x, m.y, m.size * 2.6f, 1.6f, wash(ink[(m.tint + 1) % 3], 0.35f));
-    }
-    for (unsigned i = 0; i < markCount; ++i) {
-      const Mark& m = marks[i];
-      uint16_t c = wash(ink[m.tint], 0.0f);
-      if (m.shape == 0) rect(m.x - m.size, m.y - m.size, m.x + m.size, m.y + m.size, c);
-      else if (m.shape == 1) disc(m.x, m.y, m.size, c);
-      else {
-        // A cross, which at this size is two bars and reads as a star.
-        rect(m.x - m.size * 1.6f, m.y - m.size * 0.4f, m.x + m.size * 1.6f, m.y + m.size * 0.4f, c);
-        rect(m.x - m.size * 0.4f, m.y - m.size * 1.6f, m.x + m.size * 0.4f, m.y + m.size * 1.6f, c);
-      }
-    }
-  }
-
   // Every strike pushes a ring out from the core, and the rings stay until
   // they leave the frame.
   void renderRing(float dt, uint8_t note, float weight) {
@@ -247,55 +207,42 @@ class Painting {
     }
   }
 
-  // A grid of cells, one of which turns on every strike: it shrinks to its
-  // edge and comes back in a new colour, the way a card turns. The grid keeps
-  // reorganizing for as long as the music plays and stops dead when it stops,
-  // which is the whole point.
-  void renderFold(float dt, uint8_t note, float weight) {
+  // A row of discs on a horizon, one to each stretch of the register. A
+  // strike swells its disc and knocks its neighbours after it; the swell
+  // settles back and the row goes still when the music does. A disc keeps a
+  // little of its size for a while, so the row at rest still shows where the
+  // melody has been.
+  void renderRipple(float dt, uint8_t note, float weight) {
     if (note) {
-      unsigned col = unsigned(place(note) * float(columns));
-      if (col >= columns) col = columns - 1;
-      // Pitch picks the column and the strike picks the row, so a repeated
-      // note turns a different cell of the same column rather than flipping
-      // the same one back and forth.
-      unsigned row = random() % rows;
-      Cell& c = cells[row * columns + col];
-      c.next = (c.tint + 1 + unsigned(weight * 2.0f)) % 3;
-      c.turn = 1;
-      // Two neighbours follow a moment later, so a strike runs through the
-      // grid rather than turning one card in silence.
-      for (unsigned n = 0; n < 2; ++n) {
-        int nc = int(col) + (random() % 3) - 1, nr = int(row) + (random() % 3) - 1;
-        if (nc < 0 || nr < 0 || nc >= int(columns) || nr >= int(rows)) continue;
-        Cell& near = cells[unsigned(nr) * columns + unsigned(nc)];
-        if (near.turn > 0) continue;
-        near.next = (near.tint + 1 + n) % 3;
-        near.turn = 1.35f + float(n) * 0.35f;
-      }
+      unsigned i = std::min(discCount - 1, unsigned(place(note) * float(discCount)));
+      swell[i] = std::min(1.2f, swell[i] + 0.5f + weight * 0.5f);
+      memory[i] = std::min(1.0f, memory[i] + 0.35f);
+      float push = 0.35f * weight + 0.15f;
+      if (i > 0) knock[i - 1] = std::max(knock[i - 1], push);
+      if (i + 1 < discCount) knock[i + 1] = std::max(knock[i + 1], push);
     }
     clear();
-    float cw = float(width) / float(columns), ch = float(height) / float(rows);
-    static const float tints[3] = {0.0f, 0.30f, 0.58f};
-    for (unsigned row = 0; row < rows; ++row)
-      for (unsigned col = 0; col < columns; ++col) {
-        Cell& c = cells[row * columns + col];
-        if (c.turn > 0) {
-          float was = c.turn;
-          c.turn = std::max(0.0f, c.turn - dt * 3.2f);
-          // Halfway through the turn the card is edge-on and the new colour
-          // takes over.
-          if (was > 0.5f && c.turn <= 0.5f) c.tint = c.next;
-        }
-        // Edge-on at the halfway point, full width at either end. Above one
-        // the cell is still waiting its turn and stands full width.
-        float open = c.turn > 1.0f ? 1.0f : std::abs(c.turn - 0.5f) * 2.0f;
-        if (c.turn <= 0) open = 1;
-        float w = (cw - gutter * 2) * open;
-        float cx = float(col) * cw + cw * 0.5f, cy = float(row) * ch + ch * 0.5f;
-        rect(cx - w * 0.5f, cy - (ch - gutter * 2) * 0.5f,
-             cx + w * 0.5f, cy + (ch - gutter * 2) * 0.5f,
-             wash(ink[c.tint], tints[(row + col + c.tint) % 3]));
-      }
+    float horizon = 72 + (evolving[1] - 0.5f) * 16;
+    span(int(horizon), 0, width - 1, wash(ink[2], 0.45f));
+    const float spacing = 216.0f / float(discCount - 1);
+    float radius[discCount];
+    for (unsigned i = 0; i < discCount; ++i) {
+      swell[i] = std::max(0.0f, swell[i] - dt * (0.9f + swell[i]));
+      memory[i] = std::max(0.0f, memory[i] - dt * 0.05f);
+      if (knock[i] > 0) { swell[i] = std::max(swell[i], knock[i]); knock[i] = 0; }
+      radius[i] = 4 + memory[i] * 7 + swell[i] * 17 + breath * 1.5f;
+    }
+    // Echo rings first, then the discs largest first, so a small neighbour
+    // is drawn over a swollen one rather than swallowed by it.
+    for (unsigned i = 0; i < discCount; ++i)
+      if (swell[i] > 0.45f)
+        ring(12 + float(i) * spacing, horizon, radius[i] + 5 + swell[i] * 6, 2.0f,
+             wash(ink[(i + 1) % 3], 0.35f));
+    unsigned order[discCount];
+    for (unsigned i = 0; i < discCount; ++i) order[i] = i;
+    std::sort(order, order + discCount, [&](unsigned a, unsigned b) { return radius[a] > radius[b]; });
+    for (unsigned i : order)
+      disc(12 + float(i) * spacing, horizon, radius[i], wash(ink[i % 3], swell[i] > 0.2f ? 0.0f : 0.3f));
   }
 
   // Hard angular marks that arrive on a strike and are gone by the next. A
@@ -339,61 +286,186 @@ class Painting {
     }
   }
 
-  // The page is cut in two by every strike, and each new region takes its own
-  // flat colour: a composition built note by note rather than animated. The
-  // newest edge slides into place, so the only movement on screen is movement
-  // a note caused.
-  void renderSplit(float dt, uint8_t note, float weight) {
-    if (note && regionCount < regions.size() - 1) {
-      // Cut the largest region, which keeps the page subdividing evenly
-      // instead of shredding one corner.
-      unsigned pick = 0;
-      float widest = 0;
-      for (unsigned i = 0; i < regionCount; ++i) {
-        float area = (regions[i].x1 - regions[i].x0) * (regions[i].y1 - regions[i].y0);
-        if (area > widest) { widest = area; pick = i; }
-      }
-      Region& parent = regions[pick];
-      float w = parent.x1 - parent.x0, h = parent.y1 - parent.y0;
-      if (w > 14 && h > 12) {
-        float at = 0.30f + place(note) * 0.40f;
-        Region child = parent;
-        if (w * 0.62f > h) {
-          float cut = parent.x0 + w * at;
-          child.x0 = cut; parent.x1 = cut;
-        } else {
-          float cut = parent.y0 + h * at;
-          child.y0 = cut; parent.y1 = cut;
-        }
-        child.tint = (parent.tint + 1 + unsigned(weight * 2.0f)) % 3;
-        child.open = 0;
-        parent.open = 1;
-        regions[regionCount++] = child;
-      }
-    }
-    if (regionCount >= regions.size() - 1) {
-      clearAt -= dt;
-      if (clearAt <= 0) { startPage(); }
+  // A kumiko panel: a lattice of strips over paper, cut into pieces, and
+  // each strike fills one piece at the column its pitch sets, growing out
+  // from its centre. The lattice is there from the start; what the music
+  // adds is the colour, until the panel is nearly full and a new one is
+  // started. Three traditional lattices: asanoha, the hemp leaf, whose
+  // triangles are cut in three from the centre; uroko, the scales, whose
+  // triangles are whole; and kikko, the tortoise shell, whose hexagons are cut
+  // into three diamonds and so fill in as stars and stacked cubes.
+  //
+  // Pitch is spread over the notes actually heard rather than the whole
+  // register: a melody that keeps to a few notes would otherwise fill one
+  // side of the panel and leave the other bare.
+  float spread(uint8_t note) {
+    heardLow = std::min(heardLow, int(note));
+    heardHigh = std::max(heardHigh, int(note));
+    float t = (float(note) - float(heardLow)) / float(std::max(5, heardHigh - heardLow));
+    return std::max(0.0f, std::min(1.0f, t));
+  }
+  // The corners of one triangle of the asanoha and uroko grid, pointing up
+  // or down.
+  static void gridTriangle(unsigned row, unsigned t, float* xs, float* ys) {
+    const float side = 32, rise = 27.7f;
+    float x = float(t / 2) * side - (row % 2 ? side * 0.5f : 0) - 8, y = float(row) * rise - 3;
+    if (t % 2 == 0) {
+      xs[0] = x; ys[0] = y + rise; xs[1] = x + side; ys[1] = y + rise; xs[2] = x + side * 0.5f; ys[2] = y;
     } else {
-      clearAt = 2.5f;
-    }
-    clear();
-    for (unsigned i = 0; i < regionCount; ++i) {
-      Region& r = regions[i];
-      r.open = std::min(1.0f, r.open + dt * 5.0f);
-      float w = (r.x1 - r.x0) * r.open, h = (r.y1 - r.y0) * r.open;
-      float cx = (r.x0 + r.x1) * 0.5f, cy = (r.y0 + r.y1) * 0.5f;
-      static const float tints[3] = {0.0f, 0.34f, 0.62f};
-      rect(cx - w * 0.5f + gutter, cy - h * 0.5f + gutter,
-           cx + w * 0.5f - gutter, cy + h * 0.5f - gutter,
-           wash(ink[r.tint], tints[(i + r.tint) % 3]));
+      xs[0] = x + side * 0.5f; ys[0] = y; xs[1] = x + side * 1.5f; ys[1] = y; xs[2] = x + side; ys[2] = y + rise;
     }
   }
-  void startPage() {
-    regionCount = 1;
-    regions[0] = Region{0, 0, float(width), float(height), 1, unsigned(random() % 3)};
-    clearAt = 2.5f;
-    gutter = 1.0f + unit() * 3.0f;
+  static constexpr unsigned gridRows = 6, gridTriangles = 20, shellRows = 7, shellColumns = 10;
+  // The centre and corners of one hexagon of the kikko lattice, point up.
+  void shell(unsigned row, unsigned column, float& cx, float& cy, float* xs, float* ys) const {
+    const float r = 17, across = r * 1.732f;
+    cx = float(column) * across + (row % 2 ? across * 0.5f : 0) - 6;
+    cy = float(row) * r * 1.5f - 4;
+    for (unsigned k = 0; k < 6; ++k) {
+      xs[k] = cx + fcos(float(k) / 6 + 1.0f / 12) * r;
+      ys[k] = cy + fsin(float(k) / 6 + 1.0f / 12) * r;
+    }
+  }
+  unsigned pieceCount() const {
+    return character == Asanoha ? gridRows * gridTriangles * 3
+         : character == Uroko ? gridRows * gridTriangles : shellRows * shellColumns * 3;
+  }
+  // One piece: the point it grows from, and the corners it is fanned to
+  // from there, in order.
+  unsigned piece(unsigned i, float& ox, float& oy, float* xs, float* ys) const {
+    float vx[6], vy[6];
+    if (character == Kikko) {
+      shell(i / 3 / shellColumns, i / 3 % shellColumns, ox, oy, vx, vy);
+      unsigned k = i % 3 * 2;
+      for (unsigned j = 0; j < 3; ++j) { xs[j] = vx[(k + j) % 6]; ys[j] = vy[(k + j) % 6]; }
+      return 3;
+    }
+    unsigned cell = character == Asanoha ? i / 3 : i;
+    gridTriangle(cell / gridTriangles, cell % gridTriangles, vx, vy);
+    ox = (vx[0] + vx[1] + vx[2]) / 3; oy = (vy[0] + vy[1] + vy[2]) / 3;
+    if (character == Asanoha) {
+      unsigned k = i % 3;
+      xs[0] = vx[k]; ys[0] = vy[k]; xs[1] = vx[(k + 1) % 3]; ys[1] = vy[(k + 1) % 3];
+      return 2;
+    }
+    for (unsigned j = 0; j < 4; ++j) { xs[j] = vx[j % 3]; ys[j] = vy[j % 3]; }
+    return 4;
+  }
+  // Where a piece sits, for placing it by pitch and for leaving out the ones
+  // the frame cuts off.
+  bool pieceCentre(unsigned i, float& x, float& y) const {
+    float ox, oy, xs[4], ys[4];
+    unsigned n = piece(i, ox, oy, xs, ys);
+    x = ox; y = oy;
+    for (unsigned j = 0; j < n; ++j) { x += xs[j]; y += ys[j]; }
+    x /= float(n + 1); y /= float(n + 1);
+    return x > 4 && y > 4 && x < float(width) - 4 && y < float(height) - 4;
+  }
+  // A strip two pixels wide, thickened across its own direction so the
+  // horizontals and the diagonals read as the same wood.
+  void strip(float x0, float y0, float x1, float y1, uint16_t c) {
+    line(x0, y0, x1, y1, c);
+    if (std::abs(x1 - x0) > std::abs(y1 - y0)) line(x0, y0 - 1, x1, y1 - 1, c);
+    else line(x0 - 1, y0, x1 - 1, y1, c);
+  }
+  void renderKumiko(float dt, uint8_t note, float weight) {
+    const unsigned total = pieceCount();
+    if (note && clearAt > 2.0f) {
+      float at = 10 + spread(note) * 220;
+      // Try nearest the pitch first, then a little wider, so a column that
+      // is already full passes the note to its neighbour.
+      for (float reach : {16.0f, 34.0f}) {
+        unsigned options[360], n = 0;
+        for (unsigned i = 0; i < total; ++i) {
+          float x, y;
+          if (pieces[i] <= 0 && pieceCentre(i, x, y) && std::abs(x - at) < reach) options[n++] = i;
+        }
+        if (!n) continue;
+        unsigned i = options[random() % n];
+        pieces[i] = 0.01f;
+        pieceTints[i] = uint8_t((unsigned(at / 40) + unsigned(weight * 2.0f) + random() % 2) % 3);
+        if (++piecesFilled >= piecesShown * 5 / 12) clearAt = 2.0f;
+        break;
+      }
+    }
+    if (clearAt <= 2.0f) {
+      clearAt -= dt;
+      if (clearAt <= 0) { pieces.fill(0); piecesFilled = 0; clearAt = 99; }
+    }
+    clear();
+    static const float tints[3] = {0.0f, 0.22f, 0.45f};
+    for (unsigned i = 0; i < total; ++i) {
+      float& grown = pieces[i];
+      if (grown <= 0) continue;
+      grown = std::min(1.0f, grown + dt * 5.0f);
+      float ox, oy, xs[4], ys[4];
+      unsigned n = piece(i, ox, oy, xs, ys);
+      uint16_t c = wash(ink[pieceTints[i]], tints[i % 3]);
+      for (unsigned j = 0; j + 1 < n; ++j)
+        triangle(ox, oy, ox + (xs[j] - ox) * grown, oy + (ys[j] - oy) * grown,
+                 ox + (xs[j + 1] - ox) * grown, oy + (ys[j + 1] - oy) * grown, c);
+    }
+    // The strips go over the pieces, the way the wood holds the paper.
+    uint16_t wood = wash(ink[2], 0.55f);
+    float xs[6], ys[6];
+    if (character == Kikko) {
+      for (unsigned row = 0; row < shellRows; ++row)
+        for (unsigned column = 0; column < shellColumns; ++column) {
+          float cx, cy;
+          shell(row, column, cx, cy, xs, ys);
+          for (unsigned k = 0; k < 6; ++k) {
+            strip(xs[k], ys[k], xs[(k + 1) % 6], ys[(k + 1) % 6], wood);
+            if (k % 2 == 0) strip(cx, cy, xs[k], ys[k], wood);
+          }
+        }
+      return;
+    }
+    for (unsigned row = 0; row < gridRows; ++row)
+      for (unsigned t = 0; t < gridTriangles; ++t) {
+        gridTriangle(row, t, xs, ys);
+        float cx = (xs[0] + xs[1] + xs[2]) / 3, cy = (ys[0] + ys[1] + ys[2]) / 3;
+        for (unsigned k = 0; k < 3; ++k) {
+          strip(xs[k], ys[k], xs[(k + 1) % 3], ys[(k + 1) % 3], wood);
+          if (character == Asanoha) line(cx, cy, xs[k], ys[k], wood);
+        }
+      }
+  }
+
+  // A row of moons across the sky, one to each stretch of the register. A
+  // strike turns its moon a step through its phases, so a melody that dwells
+  // on one note waxes one moon to full and wanes it again.
+  void renderMoons(float dt, uint8_t note, float weight) {
+    if (note) {
+      unsigned i = std::min(moonCount - 1, unsigned(place(note) * float(moonCount)));
+      moonGoal[i] += 0.08f + weight * 0.12f;
+    }
+    clear();
+    float sky = 67 + (evolving[1] - 0.5f) * 16;
+    for (unsigned i = 0; i < moonCount; ++i) {
+      moonPhase[i] += (moonGoal[i] - moonPhase[i]) * std::min(1.0f, dt * 6.0f);
+      float cx = 28 + float(i) * 46, cy = sky + fsin(float(i) * 0.2f + evolving[0]) * 18;
+      float r = 13 + float((i * 2) % 3) * 2;
+      float p = moonPhase[i] - std::floor(moonPhase[i]);
+      // The shadow slides across the face: new at 0, full at a half, new
+      // again at 1, and never so far out that the face goes blank for long.
+      float offset = (p < 0.5f ? 1 - p * 4 : (p - 0.5f) * 4 - 1) * r * 2.05f;
+      ring(cx, cy, r + 5, 1.5f, wash(ink[(i + 2) % 3], 0.4f));
+      disc(cx, cy, r, wash(ink[i % 3], 0.7f));
+      // The lit face is the disc less the shadow, row by row: at most two
+      // spans a row, and every edge stays hard.
+      uint16_t lit = wash(ink[i % 3], 0.0f);
+      int top = std::max(0, int(std::floor(cy - r))), bottom = std::min(int(height) - 1, int(std::ceil(cy + r)));
+      for (int y = top; y <= bottom; ++y) {
+        float v = (float(y) + 0.5f - cy) / r;
+        if (std::abs(v) > 1) continue;
+        float e = r * std::sqrt(1 - v * v);
+        int left = int(std::ceil(cx - e)), right = int(std::floor(cx + e));
+        int shadowLeft = int(std::ceil(cx + offset - e)), shadowRight = int(std::floor(cx + offset + e));
+        if (shadowRight < left || shadowLeft > right) { span(y, left, right, lit); continue; }
+        if (shadowLeft > left) span(y, left, shadowLeft - 1, lit);
+        if (shadowRight < right) span(y, shadowRight + 1, right, lit);
+      }
+    }
   }
 
   // Petals opening one to a strike, at an angle the pitch sets, until the
@@ -433,41 +505,6 @@ class Painting {
       }
     }
     disc(cx, cy, 5 + breath * 4, wash(ink[2], 0.15f));
-  }
-
-  // A line that turns a corner on every strike and is drawn to the new corner
-  // over the next fraction of a second: the page fills the way a plotter
-  // fills one, and stops dead when the music does.
-  void renderTrace(float dt, uint8_t note, float weight) {
-    if (note) {
-      if (cornerCount >= corners.size() || corners[cornerCount ? cornerCount - 1 : 0].x > float(width) - 12) {
-        cornerCount = 0;
-        ++traceRun;
-      }
-      Corner& c = corners[cornerCount++];
-      float step = 14.0f + weight * 18.0f + evolving[0] * 14.0f;
-      c.x = cornerCount == 1 ? 8.0f : corners[cornerCount - 2].x + step;
-      c.y = 14 + (1.0f - place(note)) * 106;
-      c.tint = (traceRun + cornerCount) % 3;
-      c.drawn = 0;
-    }
-    clear();
-    for (unsigned i = 1; i < cornerCount; ++i) {
-      Corner& c = corners[i];
-      c.drawn = std::min(1.0f, c.drawn + dt * 6.0f);
-      const Corner& from = corners[i - 1];
-      float x = from.x + (c.x - from.x) * c.drawn, y = from.y + (c.y - from.y) * c.drawn;
-      uint16_t colour = wash(ink[c.tint], 0.0f);
-      // Three passes across the direction of travel: one pixel of line
-      // disappears on this panel, and a solid bar is not a drawing.
-      float dx = c.x - from.x, dy = c.y - from.y;
-      float length = std::sqrt(dx * dx + dy * dy);
-      float ox = length > 0.001f ? -dy / length : 0, oy = length > 0.001f ? dx / length : 0;
-      for (int k = -2; k <= 2; ++k)
-        line(from.x + ox * float(k), from.y + oy * float(k), x + ox * float(k), y + oy * float(k), colour);
-      disc(from.x, from.y, 4.0f, wash(ink[(c.tint + 1) % 3], 0.0f));
-      if (c.drawn >= 1.0f) disc(c.x, c.y, 4.0f, wash(ink[(c.tint + 1) % 3], 0.0f));
-    }
   }
 
  public:
@@ -525,22 +562,19 @@ class Painting {
 
     markCount = 0; nextMark = 0;
     for (auto& m : marks) m = Mark{};
-    columns = 5 + unsigned(unit() * 4.0f);
-    rows = 3 + unsigned(unit() * 3.0f);
-    for (unsigned i = 0; i < cells.size(); ++i) {
-      cells[i].tint = (i * 7 + random() % 3) % 3;
-      cells[i].next = cells[i].tint;
-      cells[i].turn = 0;
-    }
+    pieces.fill(0);
+    piecesFilled = piecesShown = 0;
+    for (unsigned i = 0; i < pieceCount(); ++i) { float x, y; if (pieceCentre(i, x, y)) ++piecesShown; }
+    heardLow = (registerLow + registerHigh) / 2 - 3;
+    heardHigh = heardLow + 6;
+    swell.fill(0); knock.fill(0); memory.fill(0);
+    for (unsigned i = 0; i < moonCount; ++i) moonPhase[i] = moonGoal[i] = 0.1f + unit() * 0.8f;
     ringCount = 0; nextRing = 0;
     rings.fill(0);
-    clearAt = range(14.0f, 22.0f);
-    startPage();
+    clearAt = 99;
     petalCount = 0;
     bloomTurn = unit();
     petalShape = range(0.1f, 0.9f);
-    cornerCount = 0;
-    traceRun = unsigned(random() % 3);
     clear();
   }
 
@@ -555,11 +589,10 @@ class Painting {
     breath += (std::max(0.0f, std::min(1.0f, audio)) - breath) * std::min(1.0f, seconds * 5);
     evolve(seconds);
     switch (character) {
-      case Split: renderSplit(seconds, note, weight); break;
-      case Spark: renderSpark(seconds, note, weight); break;
+      case Asanoha: case Uroko: case Kikko: renderKumiko(seconds, note, weight); break;
       case Ring: renderRing(seconds, note, weight); break;
-      case Trace: renderTrace(seconds, note, weight); break;
-      case Fold: renderFold(seconds, note, weight); break;
+      case Ripple: renderRipple(seconds, note, weight); break;
+      case Moons: renderMoons(seconds, note, weight); break;
       case Bloom: renderBloom(seconds, note, weight); break;
       default: renderSnap(seconds, note, weight); break;
     }

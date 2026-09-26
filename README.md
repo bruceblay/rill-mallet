@@ -1,10 +1,10 @@
-<img src="docs/images/characters.png" alt="All seven Rill Mallet visuals: Ring, Spark, Snap, Bloom, Split, Fold and Trace" width="800">
+<img src="docs/images/characters.png" alt="All eight Rill Mallet visuals: Ring, Snap, Bloom, Ripple, Asanoha, Uroko, Kikko and Moons" width="800">
 
 # Rill Mallet
 
 **rill** /rɪl/ *noun* — a small stream or a tiny, shallow channel cut into soil by running water.
 
-A generative tuned-percussion instrument for the **M5Stack StickS3**. Balafon, glockenspiel, kalimba, marimba, piano, vibraphone and xylophone play evolving melodies, paired with seven visual characters. Tap for a new piece. Shake for a new visual.
+A generative tuned-percussion instrument for the **M5Stack StickS3**. Balafon, glockenspiel, kalimba, marimba, piano, vibraphone and xylophone play evolving melodies, paired with eight visual characters. Tap for a new piece. Shake for a new visual.
 
 [Play Rill Mallet](https://rillsound.com/mallet) · [Get on M5Burner](https://burner.m5stack.com/firmware/2102131755317981185) · [Build and install](#build-and-install)
 
@@ -12,31 +12,32 @@ A generative tuned-percussion instrument for the **M5Stack StickS3**. Balafon, g
 
 ## Visuals
 
-Seven characters, drawn independently of the instrument. A new generation
+Eight characters, drawn independently of the instrument. A new generation
 picks a new instrument and a new character separately; a shake picks a
-character again without touching the sound. Pairing them one to one turns
-seven instruments and seven characters into seven fixed pieces, and the point
-of a generative instrument is the combinations it finds.
+character again without touching the sound. Pairing them one to one would tie
+each instrument to a single picture, and the point of a generative instrument
+is the combinations it finds.
 
-| Ring | Spark |
+| Ring | Snap |
 | --- | --- |
-| ![Ring](docs/images/ring.png) | ![Spark](docs/images/spark.png) |
-| **Snap** | **Bloom** |
-| ![Snap](docs/images/snap.png) | ![Bloom](docs/images/bloom.png) |
-| **Split** | **Fold** |
-| ![Split](docs/images/split.png) | ![Fold](docs/images/fold.png) |
-| **Trace** | |
-| ![Trace](docs/images/trace.png) | |
+| ![Ring](docs/images/ring.png) | ![Snap](docs/images/snap.png) |
+| **Bloom** | **Ripple** |
+| ![Bloom](docs/images/bloom.png) | ![Ripple](docs/images/ripple.png) |
+| **Asanoha** | **Uroko** |
+| ![Asanoha](docs/images/asanoha.png) | ![Uroko](docs/images/uroko.png) |
+| **Kikko** | **Moons** |
+| ![Kikko](docs/images/kikko.png) | ![Moons](docs/images/moons.png) |
 
-*Actual 240 × 135 renderer captures driven by the Mallet engine. The lead image shows all seven: Ring, Spark, Snap and Bloom across the top; Split, Fold and Trace below. Regenerate with `python3 tools/screenshots.py`.*
+*Actual 240 × 135 renderer captures driven by the Mallet engine. The lead image shows all eight: Ring, Snap, Bloom and Ripple across the top; Asanoha, Uroko, Kikko and Moons below. Regenerate with `python3 tools/screenshots.py`.*
 
-- **Split** — every strike cuts the page in two and the new region takes its own flat colour. A composition built note by note.
-- **Spark** — small precise marks on an empty page, one per strike, accumulating until the page is full and a new one starts.
-- **Ring** — every strike pushes a ring out from the core, and the rings stay until they leave the frame.
-- **Trace** — a line that turns a corner on every strike and is drawn to it over the next fraction of a second.
-- **Fold** — a grid of cells, one turning on every strike: it shrinks to its edge and comes back in a new colour, with two neighbours following a moment later.
-- **Bloom** — petals opening one to a strike, stepping round by the golden angle, until the rosette is full and another starts.
-- **Snap** — a strike bursts into shards that scatter from the point and fade. Nothing accumulates.
+- **Ring**: every strike pushes a ring out from the core, and the rings stay until they leave the frame.
+- **Snap**: a strike bursts into shards that scatter from the point and fade. Nothing accumulates.
+- **Bloom**: petals opening one to a strike, stepping round by the golden angle, until the rosette is full and another starts.
+- **Ripple**: a row of discs on a horizon, one to each stretch of the register. A strike swells its disc and knocks its neighbours; the row keeps a trace of where the melody has been and goes still when the music does.
+- **Asanoha**: a kumiko panel in the hemp-leaf lattice. Each strike fills one piece of the lattice at the column its pitch sets, until the panel is nearly full and a new one starts.
+- **Uroko**: the same, in the scale pattern, a plain grid of triangles each filled whole.
+- **Kikko**: the same, in the tortoise-shell pattern, hexagons cut into three diamonds that fill in as stars and stacked cubes.
+- **Moons**: a row of moons, one to each stretch of the register. A strike turns its moon a step through its phases.
 
 They are drawn in Rill's language — opaque shapes, hard edges, a coloured
 ground, no glow or gradient — but driven differently. Rill's families answer a
@@ -138,7 +139,7 @@ Arguments are output path, seconds, seed, and optional first family (0–6).
 - `src/Mallet.h` — Rill's score with a sampled voice layer
 - `src/Samples.h` — generated; roughly 4 MB of multisample zones
 - `partitions_mallet.csv` — one factory app partition instead of two OTA slots, for the samples
-- `src/Resonance.h` — seven independently selected visual characters
+- `src/Resonance.h`: eight independently selected visual characters
 - `tools/render_kalimba.py` — renders the placeholder set
 - `tools/embed_samples.py` — WAV to header
 

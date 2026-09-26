@@ -60,5 +60,5 @@ int main() {
     a->regenerate(); a->render(0, 0);
     assert(a->visualFamily() != character && hash(*a) != before);
   }
-  std::cout << "Seven characters, deterministic seeds, per-strike response and frame bounds passed\n";
+  std::cout << "Eight characters, deterministic seeds, per-strike response and frame bounds passed\n";
 }
