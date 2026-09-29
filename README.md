@@ -116,6 +116,8 @@ Built for the **M5Stack StickS3**, with ESP32-S3, 8 MB flash, display, IMU and b
 
 ## Build and install
 
+**Firmware 0.2.0** was submitted to M5Burner on September 29, 2026 and is awaiting review. The currently public store version is 0.1.0.
+
 ```sh
 python -m pip install -r requirements-dev.txt
 pio run
