@@ -40,10 +40,8 @@ is the combinations it finds.
 - **Moons**: a row of moons, one to each stretch of the register. A strike turns its moon a step through its phases.
 
 They are drawn in Rill's language (opaque shapes, hard edges, a coloured
-ground, no glow or gradient) but driven differently. Rill's families answer a
-smoothed output level; these answer individual strikes and the pitch of each
-one, which is what a mallet instrument gives you and a level meter throws
-away. Pitch is mapped against the register the generation is actually playing
+ground, no glow or gradient) but driven differently. These visuals answer individual strikes and their pitch, so the shapes follow
+the melody as well as its loudness. Pitch is mapped against the register the generation is actually playing
 in, so a glockenspiel uses the whole frame rather than its right-hand third.
 
 ## Play
